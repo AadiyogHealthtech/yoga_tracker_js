@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yoga Tracker</title>
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; }
+        #videoContainer { position: relative; display: inline-block; }
+        canvas { position: absolute; top: 0; left: 0; }
+        #outputCanvas { z-index: 1; }
+        video { z-index: 0; }
+    </style>
+</head>
+<body>
+    <div id="videoContainer">
+        <video id="videoElement" autoplay playsinline></video>
+        <canvas id="outputCanvas"></canvas>
+    </div>
+
+    <!-- Load MediaPipe Pose -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+    <!-- Load main.js as a module -->
+    <script type="module" src="main.js"></script>
+</body>
+</html>
