@@ -1,10 +1,7 @@
-
 // main.js
 import { Controller } from './controller/controller.js';
 import { printTextOnFrame } from './utils/camera_utils.js';
-
 console.log('Starting main.js');
-
 const videoElement = document.getElementById('videoElement');
 const canvasElement = document.getElementById('outputCanvas');
 const canvasCtx = canvasElement.getContext('2d');
