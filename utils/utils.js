@@ -1,4 +1,7 @@
 // utils/utils.js
+import fastdtw from './fastDtw.js';
+
+
 export function normalizeKeypoints(landmarks) {
     if (!landmarks || !Array.isArray(landmarks) || landmarks.length < 33) {
         console.warn('Invalid landmarks data:', landmarks);
@@ -115,10 +118,14 @@ export function checkKeypointVisibility(landmarks) {
     }
     const missing = [];
     for (let i = 0; i < landmarks.length; i++) {
-        if (!landmarks[i].visibility || landmarks[i].visibility < 0.5) {
+        if (!landmarks[i].visibility || landmarks[i].visibility < 0.0) {
             missing.push(i);
         }
     }
     console.log('Keypoint visibility - Missing:', missing);
     return [missing.length === 0, missing];
 }
+
+
+
+

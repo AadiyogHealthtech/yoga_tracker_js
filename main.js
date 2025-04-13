@@ -69,7 +69,7 @@ async function onResults(results) {
 }
 
 async function processFrame(timestamp) {
-    console.log('Processing frame at timestamp:', timestamp);
+    //console.log('Processing frame at timestamp:', timestamp);
     await pose.send({ image: videoElement });
 
     const currentTime = timestamp / 1000; // Convert to seconds

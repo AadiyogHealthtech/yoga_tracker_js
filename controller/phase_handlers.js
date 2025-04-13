@@ -1,6 +1,4 @@
 
-
-
 // controller/phase_handlers.js
 console.log('Loading phase_handlers.js');
 
@@ -57,6 +55,10 @@ export class TransitionPhase extends BasePhase {
     }
 }
 
+
+
+
+
 export class HoldingPhase extends BasePhase {
     constructor(controller, thresholds) {
         super(controller);
@@ -68,11 +70,16 @@ export class HoldingPhase extends BasePhase {
         this.completedHold = false;
         this.exitThresholdMultiplier = 1.1;
     }
-
+    
+    
+    
     process(currentTime) {
+        console.log("controller"+this.controller.normalizedKeypoints) ;
         console.log('Processing HoldingPhase');
         const phase = this.controller.segments[this.controller.currentSegmentIdx].phase;
         const idealKeypoints = this.controller.getIdealKeypoints(phase);
+        console.log('Ideal keypoints for holding phase from phase handler:', idealKeypoints);
+
 
         if (this.controller.lastHoldingIdx !== -1 && 
             this.controller.currentSegmentIdx > this.controller.lastHoldingIdx && 
@@ -187,3 +194,6 @@ export class EndingPhase extends BasePhase {
         return [phase, false];
     }
 }
+
+
+

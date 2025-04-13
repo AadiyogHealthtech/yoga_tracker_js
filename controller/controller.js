@@ -107,7 +107,7 @@ export class Controller {
             console.log('Normalized keypoints:', this.normalizedKeypoints);
         } else {
             this.normalizedKeypoints = null;
-            console.warn(`Missing keypoints: ${missing.join(', ')}`);
+            console.log(`Missing keypoints: ${missing.join(', ')}`);
         }
     }
 
@@ -222,3 +222,5 @@ export class Controller {
         return [];
     }
 }
+
+
