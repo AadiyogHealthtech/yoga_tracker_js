@@ -15,11 +15,37 @@ export function printTextOnFrame(ctx, text, position = { x: 10, y: 50 }, color =
     console.log(`Text drawn: "${text}" at (${position.x}, ${position.y}) in ${color}`);
 }
 
+function drawFacingFeedback(ctx, detectedDir, requiredDir) {
+    /**
+     * Draws visual feedback about facing direction on the canvas context.
+     * 
+     * @param {CanvasRenderingContext2D} ctx - Canvas 2D context
+     * @param {string} detectedDir - Detected direction ("front", "left", "right")
+     * @param {string} requiredDir - Required direction for the exercise
+     */
+    
+    // Set font properties (equivalent to OpenCV's 0.7 scale and ~2px thickness)
+    ctx.font = '16px Arial';
+    
+    // Set text alignment baseline
+    ctx.textBaseline = 'top';
+    
+    // Draw detected direction text
+    ctx.fillStyle = detectedDir !== requiredDir ? '#FF0000' : '#00FF00'; // Red or Green
+    ctx.fillText(`Facing: ${detectedDir}`, 10, 10);
+    
+    // Draw required direction text (always green)
+    ctx.fillStyle = '#00FF00';
+    ctx.fillText(`Required: ${requiredDir}`, 10, 40);
+}
+
 /**
  * Draws the pose skeleton on the canvas using MediaPipe landmarks.
  * @param {CanvasRenderingContext2D} ctx - The canvas context.
  * @param {Array} landmarks - Array of MediaPipe Pose landmarks.
  */
+
+
 export function drawPoseSkeleton(ctx, landmarks) {
     const width = ctx.canvas.width;
     const height = ctx.canvas.height;
@@ -180,8 +206,89 @@ export function drawGuidanceArrow(ctx, userWrist, idealWrist, width, height, isS
 
     console.log(`Arrow drawn from (${userWristPixel[0]}, ${userWristPixel[1]}) to (${idealWristPixel[0]}, ${idealWristPixel[1]})`);
 }
+function drawRelaxationFeedback(ctx, breathingProgress) {
+    // Calculate center and animated radius
+    const centerX = ctx.canvas.width / 2;
+    const centerY = ctx.canvas.height / 2;
+    const radius = 50 + 20 * Math.sin(breathingProgress);
 
+    // Configure circle style
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+    ctx.strokeStyle = '#FFA500'; // Orange color (255, 165, 0 in RGB)
+    ctx.lineWidth = 3;
+    
+    // Draw the circle
+    ctx.stroke();
+    
+    return ctx;
+}
+function drawFacingArrows(ctx, userFacing, targetFacing, position = [50, 30]) {
+    const [x, y] = position;
+    const canvas = ctx.canvas;
+    const w = canvas.width;
+    const h = canvas.height;
+    const arrowColor = '#00FFFF'; // Yellow in hex
+    const thickness = 2;
 
+    // Rotation mapping (degrees)
+    const rotationMap = {
+        'left-front': 180,
+        'right-front': 0,
+        'back-front': 90,
+        'front-left': -90,
+        'front-right': 90,
+        'left-right': 180,
+        'right-left': 180,
+        'back-left': -135,
+        'back-right': 135
+    };
+
+    // Get required rotation
+    const key = `${userFacing}-${targetFacing}`;
+    let requiredRotation = rotationMap[key] || 0;
+
+    // Text directions
+    const directions = {
+        0: "Turn right",
+        90: "Turn back",
+        180: "Turn around",
+        '-90': "Turn left",
+        135: "Turn back-right",
+        '-135': "Turn back-left"
+    };
+
+    // Save canvas state
+    ctx.save();
+    
+    // Move to drawing position
+    ctx.translate(x, y);
+    ctx.rotate(requiredRotation * Math.PI / 180);
+
+    // Draw arrow (triangle)
+    ctx.beginPath();
+    ctx.moveTo(-25, 50);  // Left point
+    ctx.lineTo(25, 50);   // Right point
+    ctx.lineTo(0, 0);     // Tip
+    ctx.closePath();
+
+    // Style arrow
+    ctx.strokeStyle = arrowColor;
+    ctx.lineWidth = thickness;
+    ctx.stroke();
+
+    // Restore canvas state
+    ctx.restore();
+
+    // Draw text
+    const text = directions[requiredRotation] || `Face ${targetFacing}`;
+    ctx.fillStyle = arrowColor;
+    ctx.font = `${thickness * 14}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.fillText(text, x, y + 80); // Position text below arrow
+
+    return ctx;
+}
 
 // // utils/camera_utils.js
 // console.log('Loading camera_utils.js');

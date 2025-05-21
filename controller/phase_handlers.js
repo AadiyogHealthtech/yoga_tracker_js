@@ -195,5 +195,59 @@ export class EndingPhase extends BasePhase {
     }
 }
 
+export class RelaxationPhase extends BasePhase {
+    constructor(controller) {
+        super(controller);
+        this.lastFaceDetection = 0;
+        this.faceCheckInterval = 2000; // 2 seconds in milliseconds
+        this.currentFeedback = "Relax and breathe";
+    }
 
+    process(currentTime) {
+        const phase = "relaxation";
+        
+        // Check face direction periodically
+        if(currentTime - this.lastFaceDetection >= this.faceCheckInterval) {
+            const detectedFacing = this.controller.landmarks ? 
+                detectFacing(this.controller.landmarks) : 
+                "unknown";
+            
+            this.lastFaceDetection = currentTime;
+            
+            // Update feedback based on detection (match Python's "random" check)
+            this.currentFeedback = detectedFacing === "random" ?
+                "Relaxation Phase: Neutral position detected" :
+                "Relaxation Phase: Adjust to neutral position";
+        }
 
+        // Display feedback with breathing animation effect
+        printTextOnFrame(
+            this.controller.frame,
+            this.currentFeedback,
+            {x: 10, y: 60},
+            'rgb(255, 165, 0)' // Match Python's orange color format
+        );
+
+        // Check exit conditions
+        return { 
+            phase,
+            completed: this.shouldExitRelaxation()
+        };
+    }
+
+    shouldExitRelaxation() {
+        const currentSegment = this.controller.segments[this.controller.currentSegmentIdx];
+        
+        // Match Python's segment phase check and facing retrieval
+        if (currentSegment?.type === 'starting') {
+            const targetFacing = currentSegment.facing || 'front'; // Match Python's get("target_facing", "front")
+            const detectedFacing = this.controller.landmarks ? 
+                detectFacing(this.controller.landmarks) : 
+                null;
+            
+            return detectedFacing === targetFacing;
+        }
+        
+        return false;
+    }
+}

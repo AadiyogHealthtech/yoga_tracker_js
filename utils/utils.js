@@ -32,6 +32,34 @@ export function normalizeKeypoints(landmarks) {
     return normalized;
 }
 
+/**
+ * Denormalizes a set of keypoints by adding back the hip (root) offset.
+ *
+ * @param {Array.<[number,number,number]>} normalized 
+ *   An array of [x,y,z] triplets that were previously re‑centered so that
+ *   the hip (index 24) is at [0,0,0].
+ * @param {[number,number,number]} hip
+ *   The original hip coordinate [x,y,z] that was subtracted out.
+ * @returns {Array.<[number,number,number]>}
+ *   The denormalized keypoints in the same format as your original input.
+ */
+export function denormalizeKeypoints(normalized, hip) {
+  if (!Array.isArray(normalized) || normalized.length < 33) {
+    console.warn('Invalid normalized data:', normalized);
+    return null;
+  }
+  if (!Array.isArray(hip) || hip.length < 3) {
+    console.warn('Invalid hip data:', hip);
+    return null;
+  }
+
+  return normalized.map(point => [
+    (point[0] || 0) + hip[0],
+    (point[1] || 0) + hip[1],
+    (point[2] || 0) + hip[2]
+  ]);
+}
+
 export function calculateNormal(p1, p2, p3) {
     const v1 = [p2[0] - p1[0], p2[1] - p1[1], p2[2] - p1[2]];
     const v2 = [p3[0] - p1[0], p3[1] - p1[1], p3[2] - p1[2]];
@@ -47,6 +75,8 @@ export function calculateNormal(p1, p2, p3) {
     console.log('Calculated normal:', result);
     return result;
 }
+
+
 
 export function calculateDtwScore(series1, series2) {
     try {
