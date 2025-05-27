@@ -289,7 +289,21 @@ function drawFacingArrows(ctx, userFacing, targetFacing, position = [50, 30]) {
 
     return ctx;
 }
+// camera_utils.js - New drawing functions
+export function drawTimeoutProgress(ctx, elapsed, timeout) {
+    const width = ctx.canvas.width;
+    const progress = elapsed / timeout;
+    
+    ctx.fillStyle = 'rgba(255,0,0,0.3)';
+    ctx.fillRect(0, 10, width * progress, 5);
+}
 
+export function drawPoseMatchIndicator(ctx, distance, threshold) {
+    ctx.fillStyle = distance < threshold ? 'green' : 'red';
+    ctx.beginPath();
+    ctx.arc(30, 30, 20, 0, Math.PI * 2);
+    ctx.fill();
+}
 // // utils/camera_utils.js
 // console.log('Loading camera_utils.js');
 

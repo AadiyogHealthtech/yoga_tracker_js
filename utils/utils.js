@@ -1,7 +1,18 @@
 // utils/utils.js
+import { printTextOnFrame } from './camera_utils.js';
 import fastdtw from './fastDtw.js';
 
-
+// In utils/utils.js - Add new function
+export function calculateEuclideanDistance(a, b) {
+    if (!a || !b || a.length !== b.length) return Infinity;
+    
+    return Math.sqrt(
+        a.reduce((sum, point, i) => {
+            return sum + Math.pow(point[0] - b[i][0], 2) + 
+                   Math.pow(point[1] - b[i][1], 2);
+        }, 0)
+    );
+}
 export function normalizeKeypoints(landmarks) {
     if (!landmarks || !Array.isArray(landmarks) || landmarks.length < 33) {
         console.warn('Invalid landmarks data:', landmarks);
@@ -29,7 +40,7 @@ export function normalizeKeypoints(landmarks) {
 
     console.log('Normalized keypoints - Hip (should be [0, 0, 0]):', normalized[24]);
     console.log('Normalized keypoints sample:', normalized.slice(0, 5));
-    return normalized;
+    return [normalized, hip];
 }
 
 /**
@@ -102,17 +113,19 @@ export function calculateDtwScore(series1, series2) {
 }
 
 export function detectFacing(landmarks, xThreshold = 0.5, yThreshold = 0.5, zThreshold = 0.5) {
-    const keypoints = normalizeKeypoints(landmarks);
+    const normalized = normalizeKeypoints(landmarks);
+    const keypoints = normalized[0];
     if (!keypoints) {
         console.warn('No keypoints available for facing detection');
         return 'random';
     }
 
+
     const leftShoulder = keypoints[11];
     const rightShoulder = keypoints[12];
     const rightHip = keypoints[24];
 
-    console.log('DetectFacing - Input landmarks sample:', landmarks.slice(0, 5));
+    console.log('DetectFacing - Input landmarks sample complete:', landmarks);
     console.log('DetectFacing - Normalized keypoints sample:', keypoints.slice(0, 5));
     console.log('DetectFacing - Left Shoulder:', leftShoulder);
     console.log('DetectFacing - Right Shoulder:', rightShoulder);
@@ -136,8 +149,10 @@ export function detectFacing(landmarks, xThreshold = 0.5, yThreshold = 0.5, zThr
 
     const [direction, magnitude, threshold] = Object.values(directions)
         .reduce((max, curr) => curr[1] > max[1] ? curr : max, ['', -1, 0]);
+    console.log("its working");
     console.log('Facing detection - Direction:', direction, 'Magnitude:', magnitude, 'Threshold:', threshold);
 
+    
     return magnitude > threshold ? direction : 'random';
 }
 

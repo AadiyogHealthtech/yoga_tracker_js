@@ -29,7 +29,6 @@ pose.setOptions({
 
 // console.log('Creating Controller instance');
 // const controller = new Controller(exercisePlan);
-
 // async function setupCamera() {
 //     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
 //         console.error('MediaDevices API is not supported in this browser or context.');
@@ -56,12 +55,13 @@ pose.setOptions({
 //                 console.error('Failed to initialize segments, exercise cannot start');
 //                 alert('Failed to load exercise data. Please check the JSON file path and contents.');
 //             }
-//         };
+//         }; // <-- This closing brace was missing
 //     } catch (error) {
 //         console.error('Error accessing camera:', error);
 //         alert('Could not access the camera. Please allow camera permissions and try again.');
 //     }
 // }
+
 
 // async function onResults(results) {
 //     console.log('Pose results received:', results);
@@ -103,12 +103,14 @@ const exercisePlan = {
   }
 };
 const controller = new Controller(exercisePlan);
-
 // 3) onResults now does **all** drawing + exercise logic
 pose.onResults(results => {
   // 3a) Update your controller with the latest pose
   controller.updateFrame(results);
-
+  
+  console.log('lastValidPoseTime:', controller.lastValidPoseTime);
+  console.log('landmarks:',          controller.landmarks);
+  console.log('hipPoint:',           controller.hipPoint);
   // 3b) Clear + redraw the video frame
   canvasCtx.save();
   canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
@@ -171,6 +173,8 @@ async function onFrame() {
       throw new Error('No exercise segments loaded; check your JSON path!');
     }
     controller.startExerciseSequence();
+    
+    console.log(`here we go: ${controller.landmarks}`);
 
     // Start the MediaPipe→draw loop
     requestAnimationFrame(onFrame);
