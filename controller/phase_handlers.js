@@ -314,36 +314,133 @@ export class StartPhase extends BasePhase {
     }
 }
 
+// this one makes arrow in transition phase
+// export class TransitionPhase extends BasePhase {
+//     // ... existing constructor ...
+
+//     process(currentTime) {
+//         const elapsedMs = currentTime - this.controller.startTime;
+//         const elapsedSec = elapsedMs / 1000;
+//         const timeLeft = this.transitionTimeout - elapsedSec;
+//         printTextOnFrame(
+//             this.controller.frame,
+//             `Transition: ${(timeLeft).toFixed(1)}s remaining`,
+//             { x: 10, y: 60 },
+//             'yellow'
+//         );
+
+//         const nextSegmentIdx = this.controller.currentSegmentIdx + 1;
+//         if (nextSegmentIdx >= this.controller.segments.length) {
+//             return [this.controller.segments[this.controller.currentSegmentIdx].phase, true];
+//         }
+
+//         const phase = this.controller.segments[nextSegmentIdx].phase;
+//         const idealKeypoints = this.controller.getIdealKeypoints(phase);
+
+//         // Visualize target pose keypoints
+//         if (this.controller.normalizedKeypoints && idealKeypoints) {
+//             const width = this.controller.frame.canvas.width;
+//             const height = this.controller.frame.canvas.height;
+
+//             // Draw arrow from user wrist to target wrist position
+//             const userWrist = this.controller.normalizedKeypoints[15]; // LEFT_WRIST
+//             const targetWrist = idealKeypoints[15];
+//             const userPixel = [
+//                 (userWrist[0] + 1) * width / 2,
+//                 (userWrist[1] + 1) * height / 2
+//             ];
+//             const targetPixel = [
+//                 (targetWrist[0] + 1) * width / 2,
+//                 (targetWrist[1] + 1) * height / 2
+//             ];
+
+//             // Draw guidance arrow
+//             this.controller.frame.beginPath();
+//             this.controller.frame.moveTo(userPixel[0], userPixel[1]);
+//             this.controller.frame.lineTo(targetPixel[0], targetPixel[1]);
+//             this.controller.frame.strokeStyle = 'cyan';
+//             this.controller.frame.lineWidth = 3;
+//             this.controller.frame.stroke();
+
+//             // Draw target wrist position marker
+//             this.controller.frame.beginPath();
+//             this.controller.frame.arc(targetPixel[0], targetPixel[1], 8, 0, 2 * Math.PI);
+//             this.controller.frame.fillStyle = 'rgba(0,255,255,0.5)';
+//             this.controller.frame.fill();
+//         }
+
+//         const [ctx, success] = checkBendback(
+//             this.controller.frame,
+//             idealKeypoints,
+//             this.controller.normalizedKeypoints,
+//             currentTime,
+//             this.thresholds
+//         );
+
+//         return [
+//             this.controller.segments[this.controller.currentSegmentIdx].phase,
+//             elapsedSec >= this.transitionTimeout || success
+//         ];
+//     }
+// }
+
+
 // In phase_handlers.js - Modified TransitionPhase
 export class TransitionPhase extends BasePhase {
-    constructor(controller) {
+    constructor(controller, thresholds, startFacing) {
         super(controller);
         this.transitionTimeout = 10; 
+        this.startFacing = startFacing;
+        // this.thresholds = thresholds;
+        this.thresholds = (thresholds ? [...thresholds] : [9.5, 4, 3]).map(t => t * 1.5);
+        console.log(`Transition thresholds: ${this.thresholds}`);
     }
 
     process(currentTime) {
-        const phase = this.controller.segments[this.controller.currentSegmentIdx].phase;
-        const elapsed = currentTime - this.controller.startTime;
-        // const timeLeft = this.transitionTimeout - elapsed;
         const elapsedMs = currentTime - this.controller.startTime;
         const elapsedSec = elapsedMs / 1000;
-        const timeLeft = this.transitionTimeout - elapsedSec;
+        const timeLeft = this.transitionTimeout - elapsedMs;
         printTextOnFrame(
             this.controller.frame,
             `Transition: ${(timeLeft).toFixed(1)}s remaining`,
             { x: 10, y: 60 },
             'yellow'
         );
+        // Get NEXT phase's ideal keypoints (if valid index)
+        const nextSegmentIdx = this.controller.currentSegmentIdx + 1;
+        console.log(`next segment index is: ${nextSegmentIdx}`);
+        const phase = this.controller.segments[nextSegmentIdx].phase; 
+        
+        console.log(`next phase is: ${nextSegmentIdx}`);
+        const idealKeypoints = this.controller.getNextIdealKeypoints(phase, nextSegmentIdx);
+        
+        console.log(`Here are the Keypoints ${idealKeypoints}`);
+        
+        console.log(`Here are the Keypoints size ${idealKeypoints.length}`);
+        
+        // Perform pose check against NEXT phase's ideal pose
+        const [ctx, success] = checkBendback(
+            this.controller.frame,
+            idealKeypoints,
+            this.controller.normalizedKeypoints,
+            currentTime,
+            this.thresholds
+        );
+        console.log(`Success: ${success}`);
 
-        return [phase, elapsed >= this.transitionTimeout];
+        return [
+            this.controller.segments[this.controller.currentSegmentIdx].phase,
+            success || (elapsedMs >= this.transitionTimeout)];
     }
 }
 
 
 
 export class HoldingPhase extends BasePhase {
-    constructor(controller, thresholds) {
+    constructor(controller, thresholds, startFacing) {
         super(controller);
+        this._resetTimers();
+        this.startFacing = startFacing;
         console.log('HoldingPhase initialized with thresholds:', thresholds);
         // this.thresholds = thresholds;
         this.thresholds = [9.5, 4, 3];
@@ -354,6 +451,12 @@ export class HoldingPhase extends BasePhase {
         this.completedHold = false;
         this.exitThresholdMultiplier = 1.1;
         this.leavePoseTime = null;     
+    }
+    _resetTimers() {
+        this.holdStartTime   = null;
+        this.successDuration = 0;
+        this.completedHold   = false;
+        this.leavePoseTime   = null;
     }
     
     

@@ -341,7 +341,7 @@ export class Controller {
         this.relaxationEnteredTime = 0;
         this.relaxationThreshold = 5;  // Seconds (converted to ms in checks)
         this.relaxationSegmentIdx = 0;
-        
+
         // Frame and processing properties
         this.frame = null;
         this.results = null;
@@ -417,7 +417,7 @@ export class Controller {
             if (phaseType === 'starting') {
                 handlers[uniqueKey] = new StartPhase(this, startFacing);
             } else if (phaseType === 'transition') {
-                handlers[uniqueKey] = new TransitionPhase(this, startFacing); // Pass facing
+                handlers[uniqueKey] = new TransitionPhase(this, segment.thresholds, startFacing); // Pass facing
             } else if (phaseType === 'holding') {
                 handlers[uniqueKey] = new HoldingPhase(this, segment.thresholds, startFacing); // Add facing
             } else if (phaseType === 'ending') {
@@ -559,7 +559,7 @@ export class Controller {
             }
         }
         
-        this.currentSegmentIdx = 0;
+        this.currentSegmentIdx = this.relaxationSegmentIdx;
         this.startTime = currentTime;
     }
     resetForNewExercise() {
@@ -728,6 +728,7 @@ export class Controller {
             else if (currentSegment.type === 'ending') {
                 // Rep completion logic
                 this.handleRepCompletion(currentTime);
+                this.currentSegmentIdx = this.relaxationSegmentIdx;
             }
         }
 
@@ -749,6 +750,14 @@ export class Controller {
         }
         return [];
     }
+    getNextIdealKeypoints(phase, segmentidx){
+        const segment = this.segments[segmentidx];
+
+        const middle = Math.floor((segment.start + segment.end) / 2);
+        return this.yoga.getIdealKeypoints(middle, middle + 1)[0] || [];
+        
+    }
+
 
     getTransitionKeypoints(startIdx, endIdx) {
         for (let i = startIdx; i < endIdx; i++) {
