@@ -4,47 +4,47 @@
     "segments": [
         [
             0,
-            1,
+            4,
             "starting",
-            "right",
             [
-                0.7,
-                0.5,
-                1.0
-            ]
+                1.5,
+                1.5,
+                1.5
+            ],
+            "right"
         ],
         [
             94,
             200,
             "transition",
-            "right",
             [
                 0.7,
                 0.5,
                 1.0
-            ]
+            ],
+            "right"
         ],
         [
             200,
             365,
             "holding",
-            "right",
             [
                 9.5,
                 4,
                 3
-            ]
+            ],
+            "right"
         ],
         [
             2,
             3,
             "ending",
-            "right",
             [
                 0.7,
                 0.5,
                 1.0
-            ]
+            ],
+            "right"
         ]
     ],
     "frames": [

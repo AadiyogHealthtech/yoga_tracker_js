@@ -282,6 +282,7 @@ export class StartPhase extends BasePhase {
         this.targetFacing = targetFacing;
         this.start_time = null;
     }
+    
 
     process(currentTime) {
         console.log('Processing StartPhase');
@@ -289,13 +290,25 @@ export class StartPhase extends BasePhase {
         console.log(`StartPhase - Detected Facing: ${detectedFacing}, Target Facing: ${this.targetFacing}`);
         const phase = this.controller.segments[this.controller.currentSegmentIdx].phase;
         const expertKeypoints = this.controller.getIdealKeypoints(this.targetFacing);
+        const idealStartingKeypoints = this.controller.getNextIdealKeypoints('starting', 0);
+        this.thresholds = this.controller.segments[0].thresholds;
+        this.thresholds = [4,4,4];
+        console.log(`Thresholds of starting phase are ${this.thresholds}`);
+        const [ctx, success] = checkBendback(
+            this.controller.frame,
+            idealStartingKeypoints,
+            this.controller.normalizedKeypoints,
+            currentTime,
+            this.thresholds
+        );
+        this.controller.frame = ctx;
+        console.log(`starting Frame Success: ${success}`);
         const distance = calculateEuclideanDistance(
             this.controller.normalizedKeypoints,
             expertKeypoints
-        );
-        
-        // if (distance < 0.15 && detectedFacing === this.targetFacing) {
-        if ( detectedFacing === this.targetFacing) {
+        ); 
+        // if ( success && (detectedFacing === this.targetFacing)) {
+        if ((detectedFacing === this.targetFacing)) {
             printTextOnFrame(this.controller.frame, `Starting pose (${this.targetFacing}) detected`, { x: 10, y: 60 }, 'green');
             if(this.start_time == null){
                 this.start_time = currentTime;
@@ -387,12 +400,13 @@ export class StartPhase extends BasePhase {
 
 // In phase_handlers.js - Modified TransitionPhase
 export class TransitionPhase extends BasePhase {
-    constructor(controller, thresholds, startFacing) {
+    constructor(controller , startFacing) {
         super(controller);
         this.transitionTimeout = 10; 
         this.startFacing = startFacing;
         // this.thresholds = thresholds;
-        this.thresholds = (thresholds ? [...thresholds] : [9.5, 4, 3]).map(t => t * 1.5);
+        // this.thresholds = (thresholds ? [...thresholds] : [9.5, 4, 3]).map(t => t * 1.5);
+        this.thresholds = null;
         console.log(`Transition thresholds: ${this.thresholds}`);
     }
 
@@ -410,14 +424,15 @@ export class TransitionPhase extends BasePhase {
         const nextSegmentIdx = this.controller.currentSegmentIdx + 1;
         console.log(`next segment index is: ${nextSegmentIdx}`);
         const phase = this.controller.segments[nextSegmentIdx].phase; 
-        
+        this.thresholds = this.controller.segments[nextSegmentIdx].thresholds;
+        console.log(`Transition thresholds: ${this.thresholds}`);
         console.log(`next phase is: ${nextSegmentIdx}`);
         const idealKeypoints = this.controller.getNextIdealKeypoints(phase, nextSegmentIdx);
         
         console.log(`Here are the Keypoints ${idealKeypoints}`);
         
         console.log(`Here are the Keypoints size ${idealKeypoints.length}`);
-        
+        console.log(`Normalised Keypoints Transition ${this.controller.normalizedKeypoints}`);
         // Perform pose check against NEXT phase's ideal pose
         const [ctx, success] = checkBendback(
             this.controller.frame,
@@ -426,11 +441,14 @@ export class TransitionPhase extends BasePhase {
             currentTime,
             this.thresholds
         );
+        this.controller.frame = ctx;
         console.log(`Success: ${success}`);
-
+        if((elapsedMs >= this.transitionTimeout)){
+            this.controller.currentSegmentIdx = 0;
+        }
         return [
             this.controller.segments[this.controller.currentSegmentIdx].phase,
-            success || (elapsedMs >= this.transitionTimeout)];
+            success];
     }
 }
 
@@ -467,6 +485,7 @@ export class HoldingPhase extends BasePhase {
         const phase = this.controller.segments[this.controller.currentSegmentIdx].phase;
         const idealKeypoints = this.controller.getIdealKeypoints(phase);
         console.log('Ideal keypoints for holding phase from phase handler:', idealKeypoints);
+        console.log(`Normalised keypoints in Holding ${this.controller.normalizedKeypoints}`);
 
 
         if (this.controller.lastHoldingIdx !== -1 && 
@@ -485,6 +504,7 @@ export class HoldingPhase extends BasePhase {
 
         if (this.controller.normalizedKeypoints) {
             const [ctx, success] = checkBendback(this.controller.frame, idealKeypoints, this.controller.normalizedKeypoints, currentTime, this.thresholds);
+            console.log(`Success in holding frame ${success}`);
             this.controller.frame = ctx;
             const { dtwDistance: dtwWhole } = calculateDtwScore(idealKeypoints, this.controller.normalizedKeypoints);
             const exitThreshold = this.thresholds[0] * this.exitThresholdMultiplier;
@@ -512,7 +532,7 @@ export class HoldingPhase extends BasePhase {
             // Draw arrow from user wrist to ideal wrist position
             const width = this.controller.frame.canvas.width;
             const height = this.controller.frame.canvas.height;
-            const userWrist = this.controller.normalizedKeypoints[15]; // LEFT_WRIST
+            const userWrist = this.controller.landmarks[15]; // LEFT_WRIST
             const idealWrist = idealKeypoints[15];
             const userWristPixel = [(userWrist[0] + 1) * width / 2, (userWrist[1] + 1) * height / 2];
             const idealWristPixel = [(idealWrist[0] + 1) * width / 2, (idealWrist[1] + 1) * height / 2];
@@ -552,6 +572,8 @@ export class HoldingPhase extends BasePhase {
                     const phaseName = phase.split('_')[1] || phase;
                     printTextOnFrame(this.controller.frame, `${phaseName} completed, exiting hold (DTW: ${dtwWhole.toFixed(2)})`, { x: 10, y: 60 }, 'green');
                     console.log('Holding phase completed');
+                    
+                    this._resetTimers();
                     return [phase, true];
                 }
                 if (!this.completedHold) {
@@ -577,6 +599,7 @@ export class EndingPhase extends BasePhase {
         super(controller);
         console.log(`EndingPhase initialized with target facing: ${targetFacing}`);
         this.targetFacing = targetFacing;
+        this.thresholds = null;
     }
 
     process(currentTime) {
@@ -584,14 +607,28 @@ export class EndingPhase extends BasePhase {
         const detectedFacing = this.controller.landmarks ? detectFacing(this.controller.landmarks) : 'random';
         console.log(`EndingPhase - Detected Facing: ${detectedFacing}, Target Facing: ${this.targetFacing}`);
         const phase = this.controller.segments[this.controller.currentSegmentIdx].phase;
-        if (detectedFacing === this.targetFacing) {
+        const idealEndingKeypoints = this.controller.getNextIdealKeypoints('starting', 0);
+        this.thresholds = this.controller.segments[0].thresholds;
+        this.thresholds = [4,4,4];
+        console.log(`Thresholds of ending phase are ${this.thresholds}`);
+        const [ctx, success] = checkBendback(
+            this.controller.frame,
+            idealEndingKeypoints,
+            this.controller.normalizedKeypoints,
+            currentTime,
+            this.thresholds
+        );
+        this.controller.frame = ctx;
+        console.log(`Ending Frame Success: ${success}`);
+        // if (success && (detectedFacing === this.targetFacing)) {
+        if ((detectedFacing === this.targetFacing)) {
             printTextOnFrame(this.controller.frame, 'Repetition completed', { x: 10, y: 60 }, 'green');
             if (currentTime - this.controller.startTime >= this.holdDuration) {
                 console.log('Ending phase completed');
                 return [phase, true];
             }
         } else {
-            printTextOnFrame(this.controller.frame, `Face ${this.targetFacing} to end`, { x: 10, y: 60 }, 'red');
+            printTextOnFrame(this.controller.frame, `Face ${this.targetFacing} to end or Go to ending position to end`, { x: 10, y: 60 }, 'red');
         }
         return [phase, false];
     }

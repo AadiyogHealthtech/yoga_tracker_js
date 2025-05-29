@@ -417,7 +417,7 @@ export class Controller {
             if (phaseType === 'starting') {
                 handlers[uniqueKey] = new StartPhase(this, startFacing);
             } else if (phaseType === 'transition') {
-                handlers[uniqueKey] = new TransitionPhase(this, segment.thresholds, startFacing); // Pass facing
+                handlers[uniqueKey] = new TransitionPhase(this , startFacing); // Pass facing
             } else if (phaseType === 'holding') {
                 handlers[uniqueKey] = new HoldingPhase(this, segment.thresholds, startFacing); // Add facing
             } else if (phaseType === 'ending') {
@@ -718,12 +718,19 @@ export class Controller {
                     console.log('Transition timeout - returning to relaxation');
                 } else {
                     this.currentSegmentIdx++; // Proceed to holding
+                    this.startTime = currentTime;
                 }
             }
             else if (currentSegment.type === 'holding') {
                 // Start monitoring for abandonment
-                this.lastValidHoldTime = currentTime;
-                this.currentSegmentIdx++;
+                const newIdx = this.currentSegmentIdx + 1;
+                this.currentSegmentIdx = newIdx;
+                this.startTime = currentTime;
+
+                const nextSeg = this.segments[newIdx];
+                if (nextSeg.type === 'holding') {
+                this.phaseHandlers[nextSeg.handlerKey]._resetTimers();
+                }
             }
             else if (currentSegment.type === 'ending') {
                 // Rep completion logic
@@ -752,7 +759,6 @@ export class Controller {
     }
     getNextIdealKeypoints(phase, segmentidx){
         const segment = this.segments[segmentidx];
-
         const middle = Math.floor((segment.start + segment.end) / 2);
         return this.yoga.getIdealKeypoints(middle, middle + 1)[0] || [];
         

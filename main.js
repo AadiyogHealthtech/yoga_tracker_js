@@ -107,7 +107,6 @@ const controller = new Controller(exercisePlan);
 pose.onResults(results => {
   // 3a) Update your controller with the latest pose
   controller.updateFrame(results);
-  
   console.log('lastValidPoseTime:', controller.lastValidPoseTime);
   console.log('landmarks:',          controller.landmarks);
   console.log('hipPoint:',           controller.hipPoint);
