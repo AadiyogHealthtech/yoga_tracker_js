@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Yoga Tracker</title>
+    <link rel="stylesheet" href="style.css">
     <style>
-        body { margin: 0; font-family: Arial, sans-serif; }
         #videoContainer { position: relative; display: inline-block; }
         canvas { position: absolute; top: 0; left: 0; }
         #outputCanvas { z-index: 1; }
@@ -13,13 +13,33 @@
     </style>
 </head>
 <body>
-    <div id="videoContainer">
-        <video id="videoElement" autoplay playsinline></video>
-        <canvas id="outputCanvas"></canvas>
-    </div>
-    
+    <nav>
+        <div class="logo">Yoga Tracker</div>
+        <div class="nav-links">
+            <a href="index.html">Home</a>
+            <a href="./experiment/segment.html">Segmentor Frontend</a>
+        </div>
+    </nav>
+    <main>
+        <div id="videoContainer">
+            <video id="videoElement" autoplay playsinline></video>
+            <canvas id="outputCanvas"></canvas>
+        </div>
+    </main>
+
+    <footer>
+        &copy; All rights reserved.
+    </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+    <script>
+        // Load the navigation bar
+        fetch('navbar.html')
+            .then(response => response.text())
+            .then(data => {
+                document.getElementById('navbar-container').innerHTML = data;
+            });
+    </script>
     <script type="module" src="main.js"></script>
 </body>
 </html>
