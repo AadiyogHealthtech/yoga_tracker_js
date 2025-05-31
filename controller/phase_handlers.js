@@ -292,7 +292,6 @@ export class StartPhase extends BasePhase {
         const expertKeypoints = this.controller.getIdealKeypoints(this.targetFacing);
         const idealStartingKeypoints = this.controller.getNextIdealKeypoints('starting', 0);
         this.thresholds = this.controller.segments[0].thresholds;
-        this.thresholds = [4,4,4];
         console.log(`Thresholds of starting phase are ${this.thresholds}`);
         const [ctx, success] = checkBendback(
             this.controller.frame,
@@ -307,8 +306,8 @@ export class StartPhase extends BasePhase {
             this.controller.normalizedKeypoints,
             expertKeypoints
         ); 
-        // if ( success && (detectedFacing === this.targetFacing)) {
-        if ((detectedFacing === this.targetFacing)) {
+        if ( success && (detectedFacing === this.targetFacing)) {
+        // if ((detectedFacing === this.targetFacing)) {
             printTextOnFrame(this.controller.frame, `Starting pose (${this.targetFacing}) detected`, { x: 10, y: 60 }, 'green');
             if(this.start_time == null){
                 this.start_time = currentTime;
@@ -438,7 +437,7 @@ export class TransitionPhase extends BasePhase {
             this.controller.frame,
             idealKeypoints,
             this.controller.normalizedKeypoints,
-            currentTime,
+            this.controller.hipPoint,
             this.thresholds
         );
         this.controller.frame = ctx;
@@ -460,8 +459,7 @@ export class HoldingPhase extends BasePhase {
         this._resetTimers();
         this.startFacing = startFacing;
         console.log('HoldingPhase initialized with thresholds:', thresholds);
-        // this.thresholds = thresholds;
-        this.thresholds = [9.5, 4, 3];
+        this.thresholds = thresholds;
         console.log(`Thresholds are: ${thresholds}`)
         this.holdStartTime = null;
         this.successDuration = 0;
@@ -503,7 +501,7 @@ export class HoldingPhase extends BasePhase {
         }
 
         if (this.controller.normalizedKeypoints) {
-            const [ctx, success] = checkBendback(this.controller.frame, idealKeypoints, this.controller.normalizedKeypoints, currentTime, this.thresholds);
+            const [ctx, success] = checkBendback(this.controller.frame, idealKeypoints, this.controller.normalizedKeypoints, this.controller.hipPoint, this.thresholds);
             console.log(`Success in holding frame ${success}`);
             this.controller.frame = ctx;
             const { dtwDistance: dtwWhole } = calculateDtwScore(idealKeypoints, this.controller.normalizedKeypoints);
@@ -532,7 +530,7 @@ export class HoldingPhase extends BasePhase {
             // Draw arrow from user wrist to ideal wrist position
             const width = this.controller.frame.canvas.width;
             const height = this.controller.frame.canvas.height;
-            const userWrist = this.controller.landmarks[15]; // LEFT_WRIST
+            const userWrist = this.controller.landmarks[15]; 
             const idealWrist = idealKeypoints[15];
             const userWristPixel = [(userWrist[0] + 1) * width / 2, (userWrist[1] + 1) * height / 2];
             const idealWristPixel = [(idealWrist[0] + 1) * width / 2, (idealWrist[1] + 1) * height / 2];
@@ -609,19 +607,18 @@ export class EndingPhase extends BasePhase {
         const phase = this.controller.segments[this.controller.currentSegmentIdx].phase;
         const idealEndingKeypoints = this.controller.getNextIdealKeypoints('starting', 0);
         this.thresholds = this.controller.segments[0].thresholds;
-        this.thresholds = [4,4,4];
         console.log(`Thresholds of ending phase are ${this.thresholds}`);
         const [ctx, success] = checkBendback(
             this.controller.frame,
             idealEndingKeypoints,
             this.controller.normalizedKeypoints,
-            currentTime,
+            this.controller.hipPoint,
             this.thresholds
         );
         this.controller.frame = ctx;
         console.log(`Ending Frame Success: ${success}`);
-        // if (success && (detectedFacing === this.targetFacing)) {
-        if ((detectedFacing === this.targetFacing)) {
+        if (success && (detectedFacing === this.targetFacing)) {
+        // if ((detectedFacing === this.targetFacing)) {
             printTextOnFrame(this.controller.frame, 'Repetition completed', { x: 10, y: 60 }, 'green');
             if (currentTime - this.controller.startTime >= this.holdDuration) {
                 console.log('Ending phase completed');

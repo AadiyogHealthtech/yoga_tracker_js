@@ -9,7 +9,7 @@ export function checkPoseSuccess(idealKeypoints, normalizedKeypoints, thresholds
     return dtwWhole < thresholds[0] && dtwHand < thresholds[1] && dtwShoulder < thresholds[2];
 }
 
-export function checkBendback(ctx, idealKeypoints, normalizedKeypoints, currentTime, thresholds) {
+export function checkBendback(ctx, idealKeypoints, normalizedKeypoints, hipPoint, thresholds) {
     if (!normalizedKeypoints) {
         printTextOnFrame(ctx, 'Keypoints not detected', { x: 50, y: 50 }, 'red');
         return [ctx, false];
@@ -27,17 +27,46 @@ export function checkBendback(ctx, idealKeypoints, normalizedKeypoints, currentT
     };
     drawDtwScores(ctx, scores);
 
-    const idealWrist = idealKeypoints[15];
-    const curWrist = normalizedKeypoints[15];
-    const width = ctx.canvas.width;
-    const height = ctx.canvas.height;
-    const curPoint = [(curWrist[0] + 1) * width / 2, (curWrist[1] + 1) * height / 2];
-    const idealPoint = [(idealWrist[0] + 1) * width / 2, (idealWrist[1] + 1) * height / 2];
+    // Reconstruct absolute normalized coords for wrist
+    const userRel  = normalizedKeypoints[15]; // [dx, dy]
+    const idealRel = idealKeypoints[15];      // [dx, dy]
+    const hipNorm  = hipPoint;                // [hx, hy]
+
+    const userNorm  = [ userRel[0]  + hipNorm[0],  userRel[1]  + hipNorm[1] ];
+    const idealNorm = [ idealRel[0] + hipNorm[0],  idealRel[1] + hipNorm[1] ];
+
+    // Convert to pixel space
+    const width   = ctx.canvas.width;
+    const height  = ctx.canvas.height;
+    const userPix = [ userNorm[0] * width,  userNorm[1] * height ];
+    const idealPix= [ idealNorm[0]* width,  idealNorm[1]* height ];
+
+    // Draw guidance arrow in yellow
     ctx.beginPath();
-    ctx.moveTo(curPoint[0], curPoint[1]);
-    ctx.lineTo(idealPoint[0], idealPoint[1]);
+    ctx.moveTo(userPix[0], userPix[1]);
+    ctx.lineTo(idealPix[0], idealPix[1]);
     ctx.strokeStyle = 'yellow';
-    ctx.lineWidth = 3;
+    ctx.lineWidth   = 3;
+    ctx.stroke();
+
+    // Arrowhead
+    const angle     = Math.atan2(
+        idealPix[1] - userPix[1],
+        idealPix[0] - userPix[0]
+    );
+    const arrowSize = 10;
+
+    ctx.beginPath();
+    ctx.moveTo(idealPix[0], idealPix[1]);
+    ctx.lineTo(
+        idealPix[0] - arrowSize * Math.cos(angle + Math.PI/6),
+        idealPix[1] - arrowSize * Math.sin(angle + Math.PI/6)
+    );
+    ctx.moveTo(idealPix[0], idealPix[1]);
+    ctx.lineTo(
+        idealPix[0] - arrowSize * Math.cos(angle - Math.PI/6),
+        idealPix[1] - arrowSize * Math.sin(angle - Math.PI/6)
+    );
     ctx.stroke();
 
     const success = checkPoseSuccess(idealKeypoints, normalizedKeypoints, thresholds);

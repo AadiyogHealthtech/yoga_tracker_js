@@ -166,46 +166,101 @@ export function drawTransitionPath(ctx, idealWristPath, userKeypoints, threshold
  * @param {number} height - Canvas height.
  * @param {boolean} isSuccess - Whether the pose is correct (determines arrow color).
  */
-export function drawGuidanceArrow(ctx, userWrist, idealWrist, width, height, isSuccess) {
-    if (!userWrist || !idealWrist || userWrist.length < 2 || idealWrist.length < 2) {
-        console.warn('Invalid wrist coordinates for arrow:', { userWrist, idealWrist });
-        return;
-    }
+// export function drawGuidanceArrow(ctx, userWrist, idealWrist, width, height, isSuccess) {
+//     if (!userWrist || !idealWrist || userWrist.length < 2 || idealWrist.length < 2) {
+//         console.warn('Invalid wrist coordinates for arrow:', { userWrist, idealWrist });
+//         return;
+//     }
 
-    const userWristPixel = [(userWrist[0] + 1) * width / 2, (userWrist[1] + 1) * height / 2];
-    const idealWristPixel = [(idealWrist[0] + 1) * width / 2, (idealWrist[1] + 1) * height / 2];
+//     const userWristPixel = [(userWrist[0] + 1) * width / 2, (userWrist[1] + 1) * height / 2];
+//     const idealWristPixel = [(idealWrist[0] + 1) * width / 2, (idealWrist[1] + 1) * height / 2];
 
-    // Validate coordinates are within canvas bounds
-    if (userWristPixel[0] < 0 || userWristPixel[0] > width || userWristPixel[1] < 0 || userWristPixel[1] > height ||
-        idealWristPixel[0] < 0 || idealWristPixel[0] > width || idealWristPixel[1] < 0 || idealWristPixel[1] > height) {
-        console.warn('Arrow coordinates out of bounds:', { userWristPixel, idealWristPixel, width, height });
-        return;
-    }
+//     // Validate coordinates are within canvas bounds
+//     if (userWristPixel[0] < 0 || userWristPixel[0] > width || userWristPixel[1] < 0 || userWristPixel[1] > height ||
+//         idealWristPixel[0] < 0 || idealWristPixel[0] > width || idealWristPixel[1] < 0 || idealWristPixel[1] > height) {
+//         console.warn('Arrow coordinates out of bounds:', { userWristPixel, idealWristPixel, width, height });
+//         return;
+//     }
 
-    ctx.beginPath();
-    ctx.moveTo(userWristPixel[0], userWristPixel[1]);
-    ctx.lineTo(idealWristPixel[0], idealWristPixel[1]);
-    ctx.strokeStyle = isSuccess ? 'green' : 'red';
-    ctx.lineWidth = 3;
-    ctx.stroke();
+//     ctx.beginPath();
+//     ctx.moveTo(userWristPixel[0], userWristPixel[1]);
+//     ctx.lineTo(idealWristPixel[0], idealWristPixel[1]);
+//     ctx.strokeStyle = isSuccess ? 'green' : 'red';
+//     ctx.lineWidth = 3;
+//     ctx.stroke();
 
-    const angle = Math.atan2(idealWristPixel[1] - userWristPixel[1], idealWristPixel[0] - userWristPixel[0]);
-    const arrowSize = 10;
-    ctx.beginPath();
-    ctx.moveTo(idealWristPixel[0], idealWristPixel[1]);
-    ctx.lineTo(
-        idealWristPixel[0] - arrowSize * Math.cos(angle + Math.PI / 6),
-        idealWristPixel[1] - arrowSize * Math.sin(angle + Math.PI / 6)
-    );
-    ctx.moveTo(idealWristPixel[0], idealWristPixel[1]);
-    ctx.lineTo(
-        idealWristPixel[0] - arrowSize * Math.cos(angle - Math.PI / 6),
-        idealWristPixel[1] - arrowSize * Math.sin(angle - Math.PI / 6)
-    );
-    ctx.stroke();
+//     const angle = Math.atan2(idealWristPixel[1] - userWristPixel[1], idealWristPixel[0] - userWristPixel[0]);
+//     const arrowSize = 10;
+//     ctx.beginPath();
+//     ctx.moveTo(idealWristPixel[0], idealWristPixel[1]);
+//     ctx.lineTo(
+//         idealWristPixel[0] - arrowSize * Math.cos(angle + Math.PI / 6),
+//         idealWristPixel[1] - arrowSize * Math.sin(angle + Math.PI / 6)
+//     );
+//     ctx.moveTo(idealWristPixel[0], idealWristPixel[1]);
+//     ctx.lineTo(
+//         idealWristPixel[0] - arrowSize * Math.cos(angle - Math.PI / 6),
+//         idealWristPixel[1] - arrowSize * Math.sin(angle - Math.PI / 6)
+//     );
+//     ctx.stroke();
 
-    console.log(`Arrow drawn from (${userWristPixel[0]}, ${userWristPixel[1]}) to (${idealWristPixel[0]}, ${idealWristPixel[1]})`);
+//     console.log(`Arrow drawn from (${userWristPixel[0]}, ${userWristPixel[1]}) to (${idealWristPixel[0]}, ${idealWristPixel[1]})`);
+// }
+/**
+ * Draws an arrow from userWrist → idealWrist.
+ * Both wrists are relative to hipPoint (zero-centered).
+ * hipPoint, userWrist and idealWrist are all [x,y] in [0…1] space.
+ */
+export function drawGuidanceArrow(ctx, hipNorm, userRel, idealRel, width, height, isSuccess) {
+  // Reconstruct absolute normalized coords [0…1]
+  const userNorm  = [ userRel[0]  + hipNorm[0],  userRel[1]  + hipNorm[1] ];
+  const idealNorm = [ idealRel[0] + hipNorm[0], idealRel[1] + hipNorm[1] ];
+
+  // Convert to pixel space
+  const userPix  = [ userNorm[0]  * width,  userNorm[1]  * height ];
+  const idealPix = [ idealNorm[0] * width, idealNorm[1] * height ];
+
+  // Validate
+  if (
+    userNorm[0] < 0 || userNorm[0] > 1 || userNorm[1] < 0 || userNorm[1] > 1 ||
+    idealNorm[0] < 0 || idealNorm[0] > 1 || idealNorm[1] < 0 || idealNorm[1] > 1
+  ) {
+    console.warn('drawGuidanceArrow: normalized coords out of range', { userNorm, idealNorm });
+    return;
+  }
+
+  // Draw the shaft
+  ctx.beginPath();
+  ctx.moveTo(userPix[0], userPix[1]);
+  ctx.lineTo(idealPix[0], idealPix[1]);
+  ctx.strokeStyle = isSuccess ? 'green' : 'red';
+  ctx.lineWidth   = 3;
+  ctx.stroke();
+
+  // Draw the head
+  const angle     = Math.atan2(idealPix[1] - userPix[1], idealPix[0] - userPix[0]);
+  const arrowSize = 10;
+  ctx.beginPath();
+  // left wing
+  ctx.moveTo(idealPix[0], idealPix[1]);
+  ctx.lineTo(
+    idealPix[0] - arrowSize * Math.cos(angle + Math.PI/6),
+    idealPix[1] - arrowSize * Math.sin(angle + Math.PI/6)
+  );
+  // right wing
+  ctx.moveTo(idealPix[0], idealPix[1]);
+  ctx.lineTo(
+    idealPix[0] - arrowSize * Math.cos(angle - Math.PI/6),
+    idealPix[1] - arrowSize * Math.sin(angle - Math.PI/6)
+  );
+  ctx.stroke();
+
+  console.log(
+    `Arrow drawn from (${userPix[0].toFixed(1)},${userPix[1].toFixed(1)}) ` +
+    `→ (${idealPix[0].toFixed(1)},${idealPix[1].toFixed(1)})`
+  );
 }
+
 function drawRelaxationFeedback(ctx, breathingProgress) {
     // Calculate center and animated radius
     const centerX = ctx.canvas.width / 2;

@@ -691,16 +691,33 @@ export class Controller {
                             threshold: currentSegment.thresholds[0]
                         }
                     });
-                    const userWrist = this.normalizedKeypoints[15];
-                    const idealWrist = idealKeypoints[15];
+                    // const userWrist = this.normalizedKeypoints[15];
+                    // const idealWrist = idealKeypoints[15];
+                    // drawGuidanceArrow(
+                    //     this.frame,
+                    //     userWrist,
+                    //     idealWrist,
+                    //     this.frame.canvas.width,
+                    //     this.frame.canvas.height,
+                    //     dtwResult.dtwDistance < currentSegment.thresholds[0]
+                    // );
+                    const hipNorm     = this.hipPoint;               // [x,y] in 0…1
+                    const userRel     = this.normalizedKeypoints[15]; // [dx,dy] around hip
+                    const idealRel    = idealKeypoints[15];                     // [dx,dy] around hip
+                    const canvasW     = this.frame.canvas.width;
+                    const canvasH     = this.frame.canvas.height;
+                    const isSuccess   = (dtwResult.dtwDistance < currentSegment.thresholds[0]);
+
                     drawGuidanceArrow(
                         this.frame,
-                        userWrist,
-                        idealWrist,
-                        this.frame.canvas.width,
-                        this.frame.canvas.height,
-                        dtwResult.dtwDistance < currentSegment.thresholds[0]
+                        hipNorm,
+                        userRel,
+                        idealRel,
+                        canvasW,
+                        canvasH,
+                        isSuccess
                     );
+
                 }
             }
         }
