@@ -44,6 +44,9 @@
                             <div class="frame-number-display end-frame-number">0</div>
                         </div>
                     </div>
+                    <!--TWO PREVIEW ELEMENTS -->
+                    <div id="startPreview" class="timeline-preview"></div>
+                    <div id="endPreview" class="timeline-preview"></div>
                 </div>
                 <div class="button-group">
                     <button id="playSegment">Play Segment</button>
@@ -51,7 +54,14 @@
             </div>
             <div class="form-group">
                 <label for="yogaPhase">Yoga Phase:</label>
-                <input type="text" id="yogaPhase" name="yogaPhase" required>
+                <select id="yogaPhase" name="yogaPhase" required>
+                    <option value="">Select a phase</option>
+                    <option value="starting">Starting</option>
+                    <option value="holding">Holding</option>
+                    <option value="transition">Transition</option>
+                    <option value="ending">Ending</option>
+                    <option value="relaxation">Relaxation</option>
+                </select>
                 <label for="suggestion">Feedback:</label>
                 <input type="text" id="suggestion" rows="2" name="suggestion">
                 <div class="threshold-group">
@@ -116,6 +126,6 @@
                 document.getElementById('navbar-container').innerHTML = data;
             });
     </script>
-    <script src="segment.js"></script>
+    <script src="preview.js"></script>
 </body>
 </html>
