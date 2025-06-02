@@ -463,7 +463,7 @@ export class HoldingPhase extends BasePhase {
         console.log(`Thresholds are: ${thresholds}`)
         this.holdStartTime = null;
         this.successDuration = 0;
-        this.minHoldDuration = 2;
+        this.minHoldDuration = 1;
         this.completedHold = false;
         this.exitThresholdMultiplier = 1.1;
         this.leavePoseTime = null;     
