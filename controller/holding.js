@@ -41,6 +41,15 @@ export function checkBendback(ctx, idealKeypoints, normalizedKeypoints, hipPoint
     const userPix = [ userNorm[0] * width,  userNorm[1] * height ];
     const idealPix= [ idealNorm[0]* width,  idealNorm[1]* height ];
 
+
+    const minDimension = Math.min(width, height);
+    const radius = thresholds[1] * minDimension / 2;
+    ctx.strokeStyle = "#FF0000"; // Red circle
+    ctx.lineWidth = 2; // Line width of 2 pixels
+    // Draw the circle
+    ctx.beginPath();
+    ctx.arc(idealPix[0], idealPix[1], radius, 0, Math.PI * 2);
+    ctx.stroke();
     // Draw guidance arrow in yellow
     ctx.beginPath();
     ctx.moveTo(userPix[0], userPix[1]);
