@@ -75,6 +75,8 @@ function onPoseResults(results) {
         drawPose(currentPoseLandmarks);
     }
 }
+
+
 function showSegmentForm() {
   const formContainer = document.getElementById("segmentFormContainer");
   formContainer.style.display = "block";
@@ -83,6 +85,7 @@ function showSegmentForm() {
   const frameSelection = document.getElementById("frameSelection");
   frameSelection.innerHTML = "";
 
+  // Display all extracted frames in the segment form
   extractedFrames.forEach((frame, index) => {
     const frameCard = document.createElement("div");
     frameCard.className = "frame-card frame-selector";
@@ -924,7 +927,9 @@ async function extractPhaseFrames() {
     statusMessage.className = "status-message status-success";
   }
 
-  displayExtractedFrames();
+  // displayExtractedFrames();
+  document.getElementById("segmentControls").style.display = "block";
+
 
   // Add null checks before disabling buttons
   const saveFramesBtn = document.getElementById("saveFrames");
