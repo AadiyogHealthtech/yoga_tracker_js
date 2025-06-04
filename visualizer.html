@@ -43,27 +43,28 @@
                 <button id="saveFrames" class="btn" disabled>Save Frame Data</button>
             </div>
 
-            <div class="phase-controls">
-                <h3>Phase Time Ranges (seconds)</h3>
-                <div class="phase-row">
-                    <label class="phase-label">Starting Phase:</label>
-                    <input type="number" id="startPhaseMin" class="range-input" placeholder="Start time" min="0.2" step="0.1">
-                    <span>to</span>
-                    <input type="number" id="startPhaseMax" class="range-input" placeholder="End time" min="0.2" step="0.1">
-                </div>
-                <div class="phase-row">
-                    <label class="phase-label">Holding Phase:</label>
-                    <input type="number" id="holdPhaseMin" class="range-input" placeholder="Start time" min="0.2" step="0.1">
-                    <span>to</span>
-                    <input type="number" id="holdPhaseMax" class="range-input" placeholder="End time" min="0.2" step="0.1">
-                </div>
-                <div class="phase-row">
-                    <label class="phase-label">Ending Phase:</label>
-                    <input type="number" id="endPhaseMin" class="range-input" placeholder="Start time" min="0.2" step="0.1">
-                    <span>to</span>
-                    <input type="number" id="endPhaseMax" class="range-input" placeholder="End time" min="0.2" step="0.1">
-                </div>
-            </div>
+        <div class="phase-controls">
+    <h3>Phase Selection</h3>
+    <div class="phase-row">
+        <label class="phase-label">Select Phase:</label>
+        <select id="phaseSelect" class="form-control">
+            <option value="">-- Select a phase --</option>
+            <option value="Starting">Starting Phase</option>
+            <option value="Holding1">Holding Phase 1</option>
+            <option value="Holding2">Holding Phase 2</option>
+            <option value="Holding3">Holding Phase 3</option>
+            <option value="Transition">Transition Phase</option>
+            <option value="Ending">Ending Phase</option>
+            <option value="Relaxation">Relaxation Phase</option>
+        </select>
+        <button id="addPhaseBtn" class="btn">Add Phase</button>
+    </div>
+    
+
+    <div id="phaseTimeRanges" class="phase-time-ranges">
+        <!-- Dynamic phase time ranges will be added here -->
+    </div>
+</div>
 
             <div id="progressSection" style="display: none;">
                 <div class="progress-bar">
@@ -106,43 +107,6 @@
                 <div id="segmentsList" class="segments-container"></div>
             </div>
         </div>
-
-<!-- <div class="threshold-controls">
-    <h3>Threshold Settings</h3>
-    <div class="threshold-row">
-        <input type="checkbox" id="leftWristCheck" class="threshold-checkbox">
-        <label class="threshold-label">Left Wrist</label>
-        <input type="range" id="leftWristThreshold" class="threshold-slider" 
-               min="0.2" max="2" step="0.1" value="2">
-        <span id="leftWristValue" class="threshold-value">2</span>
-        <div class="color-indicator" style="background: rgba(255, 0, 0, 0.5);"></div>
-    </div>
-    <div class="threshold-row">
-        <input type="checkbox" id="rightWristCheck" class="threshold-checkbox">
-        <label class="threshold-label">Right Wrist</label>
-        <input type="range" id="rightWristThreshold" class="threshold-slider" 
-               min="0.2" max="2" step="0.1" value="2">
-        <span id="rightWristValue" class="threshold-value">2</span>
-        <div class="color-indicator" style="background: rgba(0, 0, 255, 0.5);"></div>
-    </div>
-    <div class="threshold-row">
-        <input type="checkbox" id="leftAnkleCheck" class="threshold-checkbox">
-        <label class="threshold-label">Left Ankle</label>
-        <input type="range" id="leftAnkleThreshold" class="threshold-slider" 
-               min="0.2" max="2" step="0.1" value="2">
-        <span id="leftAnkleValue" class="threshold-value">2</span>
-        <div class="color-indicator" style="background: rgba(0, 255, 0, 0.5);"></div>
-    </div>
-    <div class="threshold-row">
-        <input type="checkbox" id="rightAnkleCheck" class="threshold-checkbox">
-        <label class="threshold-label">Right Ankle</label>
-        <input type="range" id="rightAnkleThreshold" class="threshold-slider" 
-               min="0.2" max="2" step="0.1" value="2">
-        <span id="rightAnkleValue" class="threshold-value">2</span>
-        <div class="color-indicator" style="background: rgba(255, 255, 0, 0.5);"></div>
-    </div>
-    <button id="applyThresholds" class="btn" disabled>Apply Thresholds</button>
-</div> -->
 
         <div class="export-section">
             <h3>Export Data</h3>

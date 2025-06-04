@@ -21,35 +21,50 @@ const POSE_CONNECTIONS = [
     [27, 29], [28, 30], [29, 31], [30, 32], [27, 31], [28, 32]
 ];
 
-// Body part keypoint indices
 // Body part keypoint indices (MediaPipe pose landmarks)
 const BODY_PARTS = {
-  leftWrist: 15,
-  rightWrist: 16,
-  leftAnkle: 27,
-  rightAnkle: 28,
+  nose: 0,
+  leftEye: 2,
+  rightEye: 5,
+  leftEar: 7,
+  rightEar: 8,
   leftShoulder: 11,
   rightShoulder: 12,
+  leftElbow: 13,
+  rightElbow: 14,
+  leftWrist: 15,
+  rightWrist: 16,
   leftHip: 23,
   rightHip: 24,
-  // Add more as needed
+  leftKnee: 25,
+  rightKnee: 26,
+  leftAnkle: 27,
+  rightAnkle: 28,
 };
 
-// Threshold colors
 const THRESHOLD_COLORS = {
-  leftWrist: "rgba(255, 0, 0, 0.3)",
-  rightWrist: "rgba(0, 0, 255, 0.3)",
-  leftAnkle: "rgba(0, 255, 0, 0.3)",
-  rightAnkle: "rgba(255, 255, 0, 0.3)",
-  leftShoulder: "rgba(255, 0, 255, 0.3)",
-  rightShoulder: "rgba(0, 255, 255, 0.3)",
-  // Add more as needed
+  nose: "rgba(255, 0, 0, 0.3)",
+  leftEye: "rgba(0, 255, 0, 0.3)",
+  rightEye: "rgba(0, 0, 255, 0.3)",
+  leftShoulder: "rgba(255, 255, 0, 0.3)",
+  rightShoulder: "rgba(255, 0, 255, 0.3)",
+  leftElbow: "rgba(0, 255, 255, 0.3)",
+  rightElbow: "rgba(128, 0, 0, 0.3)",
+  leftWrist: "rgba(0, 128, 0, 0.3)",
+  rightWrist: "rgba(0, 0, 128, 0.3)",
+  leftHip: "rgba(128, 128, 0, 0.3)",
+  rightHip: "rgba(128, 0, 128, 0.3)",
+  leftKnee: "rgba(0, 128, 128, 0.3)",
+  rightKnee: "rgba(64, 64, 64, 0.3)",
+  leftAnkle: "rgba(192, 192, 192, 0.3)",
+  rightAnkle: "rgba(255, 128, 0, 0.3)",
 };
 
 // Initialize the application
 async function init() {
     await initializeMediaPipe();
-    setupEventListeners();
+  setupEventListeners();
+  setupPhaseSelection(); 
 }
 
 // Initialize MediaPipe Pose
@@ -76,24 +91,90 @@ function onPoseResults(results) {
     }
 }
 
+function setupPhaseSelection() {
+  const phaseSelect = document.getElementById("phaseSelect");
+  const addPhaseBtn = document.getElementById("addPhaseBtn");
+  const phaseTimeRanges = document.getElementById("phaseTimeRanges");
 
-function showSegmentForm() {
-  const formContainer = document.getElementById("segmentFormContainer");
-  formContainer.style.display = "block";
+  addPhaseBtn.addEventListener("click", () => {
+    const selectedPhase = phaseSelect.value;
+    if (!selectedPhase) {
+      alert("Please select a phase first");
+      return;
+    }
 
-  // Populate frame selection
+    // Check if this phase already exists
+    if (document.getElementById(`${selectedPhase.toLowerCase()}PhaseMin`)) {
+      alert("This phase has already been added");
+      return;
+    }
+
+    // Create new phase time range inputs
+    const phaseDiv = document.createElement("div");
+    phaseDiv.className = "phase-row";
+    phaseDiv.innerHTML = `
+          <label class="phase-label">${selectedPhase} Phase:</label>
+          <input type="number" id="${selectedPhase.toLowerCase()}PhaseMin" class="range-input" placeholder="Start time" min="0" step="0.1">
+          <span>to</span>
+          <input type="number" id="${selectedPhase.toLowerCase()}PhaseMax" class="range-input" placeholder="End time" min="0.1" step="0.1">
+          <button class="btn secondary remove-phase" data-phase="${selectedPhase}">Remove</button>
+      `;
+
+    phaseTimeRanges.appendChild(phaseDiv);
+
+    // Add remove button handler
+    phaseDiv.querySelector(".remove-phase").addEventListener("click", (e) => {
+      phaseDiv.remove();
+    });
+  });
+}
+// Add this function to handle phase dropdown changes in the segment form
+function setupSegmentPhaseListener() {
+  const segmentPhaseDropdown = document.getElementById("segmentPhase");
+  if (segmentPhaseDropdown) {
+    segmentPhaseDropdown.addEventListener("change", () => {
+      // Clear the current selection
+      selectedFrameForSegment = null;
+      
+      // Refresh the frame display for the new phase
+      const frameSelection = document.getElementById("frameSelection");
+      if (frameSelection && frameSelection.innerHTML !== "") {
+        showSegmentFramesForCurrentPhase();
+      }
+    });
+  }
+}
+
+// Helper function to refresh frames when phase changes
+function showSegmentFramesForCurrentPhase() {
   const frameSelection = document.getElementById("frameSelection");
   frameSelection.innerHTML = "";
 
-  // Display all extracted frames in the segment form
-  extractedFrames.forEach((frame, index) => {
+  const selectedPhase = document.getElementById("segmentPhase").value;
+
+  // Filter frames by selected phase (case-insensitive match)
+  const phaseFrames = extractedFrames.filter((frame) => {
+    const framePhase = frame.name.split(" ")[0].toLowerCase();
+    return framePhase === selectedPhase.toLowerCase();
+  });
+
+  if (phaseFrames.length === 0) {
+    frameSelection.innerHTML = `<p>No frames available for "${selectedPhase}" phase</p>`;
+    return;
+  }
+
+  // Display filtered frames
+  phaseFrames.forEach((frame, phaseIndex) => {
     const frameCard = document.createElement("div");
     frameCard.className = "frame-card frame-selector";
-    frameCard.dataset.index = index;
+    frameCard.dataset.phaseIndex = phaseIndex;
+    frameCard.dataset.originalIndex = extractedFrames.findIndex(
+      (f) => f.name === frame.name && f.time === frame.time
+    );
 
     const title = document.createElement("div");
     title.className = "frame-title";
-    title.textContent = `${frame.name} Frame (${frame.time.toFixed(2)}s)`;
+    title.textContent = `${frame.name} (${frame.time.toFixed(2)}s)`;
 
     const canvasContainer = document.createElement("div");
     canvasContainer.className = "frame-canvas-container";
@@ -122,10 +203,79 @@ function showSegmentForm() {
         el.classList.remove("selected");
       });
       frameCard.classList.add("selected");
-      selectedFrameForSegment = index;
+      selectedFrameForSegment = parseInt(frameCard.dataset.originalIndex);
     });
   });
 }
+
+// Update the showSegmentForm function to properly filter frames by phase
+function showSegmentForm() {
+  const formContainer = document.getElementById("segmentFormContainer");
+  formContainer.style.display = "block";
+
+  const frameSelection = document.getElementById("frameSelection");
+  frameSelection.innerHTML = "";
+
+  const selectedPhase = document.getElementById("segmentPhase").value;
+
+  // Filter frames by selected phase (case-insensitive match)
+  const phaseFrames = extractedFrames.filter((frame) => {
+    // Extract phase name from frame name (assuming format "PhaseName FrameNumber")
+    const framePhase = frame.name.split(" ")[0].toLowerCase();
+    return framePhase === selectedPhase.toLowerCase();
+  });
+
+  if (phaseFrames.length === 0) {
+    frameSelection.innerHTML = `<p>No frames available for "${selectedPhase}" phase</p>`;
+    return;
+  }
+
+  // Display filtered frames in the segment form
+  phaseFrames.forEach((frame, phaseIndex) => {
+    const frameCard = document.createElement("div");
+    frameCard.className = "frame-card frame-selector";
+    frameCard.dataset.phaseIndex = phaseIndex; // Store the index within the phase
+    frameCard.dataset.originalIndex = extractedFrames.findIndex(
+      (f) => f.name === frame.name && f.time === frame.time
+    ); // Store the original index in extractedFrames
+
+    const title = document.createElement("div");
+    title.className = "frame-title";
+    title.textContent = `${frame.name} (${frame.time.toFixed(2)}s)`;
+
+    const canvasContainer = document.createElement("div");
+    canvasContainer.className = "frame-canvas-container";
+
+    const canvas = document.createElement("canvas");
+    canvas.className = "frame-canvas";
+    canvas.width = 200;
+    canvas.height = (200 / frame.width) * frame.height;
+
+    const ctx = canvas.getContext("2d");
+    const img = new Image();
+    img.onload = () => {
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      drawPoseOnCanvas(frame.landmarks, ctx, canvas.width, canvas.height);
+    };
+    img.src = frame.imageData;
+
+    canvasContainer.appendChild(canvas);
+    frameCard.appendChild(title);
+    frameCard.appendChild(canvasContainer);
+    frameSelection.appendChild(frameCard);
+
+    // Add click handler
+    frameCard.addEventListener("click", () => {
+      document.querySelectorAll(".frame-selector").forEach((el) => {
+        el.classList.remove("selected");
+      });
+      frameCard.classList.add("selected");
+      // Use the original index in extractedFrames
+      selectedFrameForSegment = parseInt(frameCard.dataset.originalIndex);
+    });
+  });
+}
+
 
 function hideSegmentForm() {
   document.getElementById("segmentFormContainer").style.display = "none";
@@ -191,32 +341,31 @@ function saveSegment() {
   updateSegmentsList();
   hideSegmentForm();
 }
-
 function drawThresholdCircles(segment, ctx, width, height, landmarks) {
-    if (!segment.thresholds) return;
-    
-    Object.keys(segment.thresholds).forEach(part => {
-      const threshold = segment.thresholds[part];
-      const index = BODY_PARTS[part];
-      const landmark = landmarks[index];
-      
-      if (landmark && landmark.visibility > 0.05) {
-        const x = landmark.x * width;
-        const y = landmark.y * height;
-        const radius = threshold * 100; // Adjust multiplier as needed
-        
-        ctx.strokeStyle = THRESHOLD_COLORS[part];
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(x, y, radius, 0, 2 * Math.PI);
-        ctx.stroke();
-        
-        // Add text label
-        ctx.fillStyle = '#000';
-        ctx.font = '14px Arial';
-        ctx.fillText(`${part}: ${threshold}`, x + radius + 5, y);
-      }
-    });
+  if (!segment.thresholds) return;
+
+  Object.keys(segment.thresholds).forEach((part) => {
+    const threshold = segment.thresholds[part];
+    const index = BODY_PARTS[part];
+    const landmark = landmarks[index];
+
+    if (landmark && landmark.visibility > 0.05) {
+      const x = landmark.x * width;
+      const y = landmark.y * height;
+      const radius = threshold * Math.min(width, height) * 0.1; // Make radius proportional to canvas size
+
+      ctx.strokeStyle = THRESHOLD_COLORS[part];
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, 2 * Math.PI);
+      ctx.stroke();
+
+      // Add text label
+      ctx.fillStyle = "#000";
+      ctx.font = "14px Arial";
+      ctx.fillText(`${part}: ${threshold.toFixed(2)}`, x + radius + 5, y);
+    }
+  });
 }
   
 
@@ -255,7 +404,7 @@ function updateSegmentsList() {
 
     const analyzeBtn = document.createElement("button");
     analyzeBtn.className = "btn";
-    analyzeBtn.textContent = "Analyze with Circles";
+    analyzeBtn.textContent = "Add Thresholds";
     analyzeBtn.onclick = () => analyzeSegment(segment);
 
     segmentCard.appendChild(header);
@@ -310,88 +459,51 @@ function analyzeSegment(segment) {
   canvasContainer.appendChild(canvas);
   analysisContainer.appendChild(canvasContainer);
 
-  // Add threshold controls
+  // Add keypoint selection dropdown and add button
+  const keypointControls = document.createElement("div");
+  keypointControls.className = "keypoint-controls";
+  keypointControls.style.marginTop = "20px";
+
+  const keypointSelect = document.createElement("select");
+  keypointSelect.id = `segment-${segment.id}-keypoint-select`;
+
+  Object.keys(BODY_PARTS).forEach((part) => {
+    const option = document.createElement("option");
+    option.value = part;
+    option.textContent = part;
+    keypointSelect.appendChild(option);
+  });
+
+  const addKeypointBtn = document.createElement("button");
+  addKeypointBtn.className = "btn secondary";
+  addKeypointBtn.textContent = "Add Keypoint";
+  addKeypointBtn.onclick = () => {
+    const selectedPart = keypointSelect.value;
+    if (!segment.thresholds) segment.thresholds = {};
+    if (!segment.thresholds[selectedPart]) {
+      segment.thresholds[selectedPart] = 1.0;
+      updateThresholdControls(segment, controlsDiv);
+      redrawAnalysisCanvas(canvas, img, frame, segment);
+    }
+  };
+
+  keypointControls.appendChild(keypointSelect);
+  keypointControls.appendChild(addKeypointBtn);
+  analysisContainer.appendChild(keypointControls);
+
+  // Threshold controls container
   const controlsDiv = document.createElement("div");
   controlsDiv.className = "segment-threshold-controls";
   controlsDiv.style.marginTop = "20px";
-
-  const controlsTitle = document.createElement("h4");
-  controlsTitle.textContent = "Threshold Settings";
-  controlsDiv.appendChild(controlsTitle);
-
-  // Add controls for each body part
-  const bodyParts = ["leftWrist", "rightWrist", "leftAnkle", "rightAnkle"];
-
-  bodyParts.forEach((part) => {
-    const row = document.createElement("div");
-    row.className = "threshold-row";
-
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.id = `segment-${segment.id}-${part}-check`;
-    checkbox.className = "threshold-checkbox";
-    checkbox.checked = !!segment.thresholds?.[part];
-
-    const label = document.createElement("label");
-    label.className = "threshold-label";
-    label.textContent = part;
-    label.htmlFor = checkbox.id;
-
-    const slider = document.createElement("input");
-    slider.type = "range";
-    slider.id = `segment-${segment.id}-${part}-threshold`;
-    slider.className = "threshold-slider";
-    slider.min = "0.2";
-    slider.max = "2";
-    slider.step = "0.1";
-    slider.value = segment.thresholds?.[part] || "1";
-    slider.disabled = !checkbox.checked;
-
-    const value = document.createElement("span");
-    value.className = "threshold-value";
-    value.textContent = slider.value;
-
-    const color = document.createElement("div");
-    color.className = "color-indicator";
-    color.style.background = THRESHOLD_COLORS[part];
-
-    // Event listeners
-    slider.addEventListener("input", () => {
-      value.textContent = slider.value;
-      updateSegmentThreshold(
-        segment,
-        part,
-        parseFloat(slider.value),
-        checkbox.checked
-      );
-      redrawAnalysisCanvas(canvas, img, frame, segment);
-    });
-
-    checkbox.addEventListener("change", () => {
-      slider.disabled = !checkbox.checked;
-      updateSegmentThreshold(
-        segment,
-        part,
-        parseFloat(slider.value),
-        checkbox.checked
-      );
-      redrawAnalysisCanvas(canvas, img, frame, segment);
-    });
-
-    row.appendChild(checkbox);
-    row.appendChild(label);
-    row.appendChild(slider);
-    row.appendChild(value);
-    row.appendChild(color);
-    controlsDiv.appendChild(row);
-  });
-
   analysisContainer.appendChild(controlsDiv);
+
+  // Populate controls based on current segment
+  updateThresholdControls(segment, controlsDiv);
 
   // Add close button
   const closeBtn = document.createElement("button");
   closeBtn.className = "btn secondary";
-  closeBtn.textContent = "Close Analysis";
+  closeBtn.textContent = "Save Thresholds";
   closeBtn.style.marginTop = "15px";
   closeBtn.onclick = () => {
     analysisContainer.innerHTML = "";
@@ -402,6 +514,71 @@ function analyzeSegment(segment) {
   // Show the container
   analysisContainer.style.display = "block";
 }
+
+function updateThresholdControls(segment, container) {
+  container.innerHTML = ""; // Clear existing controls
+
+  const controlsTitle = document.createElement("h4");
+  controlsTitle.textContent = "Threshold Settings";
+  container.appendChild(controlsTitle);
+
+  Object.keys(segment.thresholds || {}).forEach((part) => {
+    const row = document.createElement("div");
+    row.className = "threshold-row";
+
+    const label = document.createElement("label");
+    label.className = "threshold-label";
+    label.textContent = part;
+
+    const slider = document.createElement("input");
+    slider.type = "range";
+    slider.className = "threshold-slider";
+    slider.min = "0.1";
+    slider.max = "2";
+    slider.step = "0.01";
+    slider.value = segment.thresholds[part];
+    slider.style.width = "200px";
+
+    const value = document.createElement("span");
+    value.className = "threshold-value";
+    value.textContent = slider.value;
+
+    const removeBtn = document.createElement("button");
+    removeBtn.className = "btn secondary remove-threshold";
+    removeBtn.textContent = "Remove";
+    removeBtn.onclick = () => {
+      delete segment.thresholds[part];
+      updateThresholdControls(segment, container);
+      // Get the current frame and redraw
+      const frame = extractedFrames[segment.frameIndex];
+      redrawAnalysisCanvas(canvas, img, frame, segment);
+    };
+
+    // In the updateThresholdControls function, update the slider event listener:
+    slider.addEventListener("input", (e) => {
+      value.textContent = e.target.value;
+      segment.thresholds[part] = parseFloat(e.target.value);
+
+      // Get the current frame and redraw with updated radius
+      const frame = extractedFrames[segment.frameIndex];
+      const canvas = document.querySelector(".analysis-canvas");
+      if (canvas) {
+        const img = new Image();
+        img.onload = () => {
+          redrawAnalysisCanvas(canvas, img, frame, segment);
+        };
+        img.src = frame.imageData;
+      }
+    });
+
+    row.appendChild(label);
+    row.appendChild(slider);
+    row.appendChild(value);
+    row.appendChild(removeBtn);
+    container.appendChild(row);
+  });
+}
+
 
 function createAnalysisContainer() {
   const container = document.createElement("div");
@@ -424,19 +601,41 @@ function createAnalysisContainer() {
   return container;
 }
 
+// Update the redrawAnalysisCanvas function to properly handle radius changes
 function redrawAnalysisCanvas(canvas, img, frame, segment) {
   const ctx = canvas.getContext("2d");
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
   drawPoseOnCanvas(frame.landmarks, ctx, canvas.width, canvas.height);
-  drawThresholdCircles(
-    segment,
-    ctx,
-    canvas.width,
-    canvas.height,
-    frame.landmarks
-  );
+
+  if (segment && segment.thresholds) {
+    Object.keys(segment.thresholds).forEach((part) => {
+      const threshold = segment.thresholds[part];
+      const index = BODY_PARTS[part];
+      const landmark = frame.landmarks[index];
+
+      if (landmark && landmark.visibility > 0.05) {
+        const x = landmark.x * canvas.width;
+        const y = landmark.y * canvas.height;
+        // Calculate radius based on canvas dimensions and threshold value
+        const baseSize = Math.min(canvas.width, canvas.height);
+        const radius = threshold * baseSize * 0.05; // Adjust multiplier as needed
+
+        ctx.strokeStyle = THRESHOLD_COLORS[part];
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, 2 * Math.PI);
+        ctx.stroke();
+
+        // Add text label
+        ctx.fillStyle = "#000";
+        ctx.font = "14px Arial";
+        ctx.fillText(`${part}: ${threshold.toFixed(2)}`, x + radius + 5, y);
+      }
+    });
+  }
 }
+
 
 function addSegmentThresholdControls(segment) {
   const container = document.getElementById("framesPreview");
@@ -670,34 +869,35 @@ function drawAnalysisCircles(ctx, width, height, landmarks) {
 }
 
 
-
 // Setup event listeners
 function setupEventListeners() {
-    document
-      .getElementById("addSegmentBtn")
-      .addEventListener("click", showSegmentForm);
-    document
-      .getElementById("saveSegmentBtn")
-      .addEventListener("click", saveSegment);
-    document
-      .getElementById("cancelSegmentBtn")
-        .addEventListener("click", hideSegmentForm);
-    
-    // Video upload
-    document.getElementById('videoUpload').addEventListener('change', handleVideoUpload);
-    
-    // Controls
-    document.getElementById('togglePose').addEventListener('click', togglePoseDetection);
-    document.getElementById('extractFrames').addEventListener('click', extractPhaseFrames);
-    document.getElementById('saveFrames').addEventListener('click', saveFrameData);
-    
-    // Threshold controls
-    setupThresholdControls();
-    
-    // Export buttons
-    document.getElementById('exportJson').addEventListener('click', exportAsJson);
-    document.getElementById('exportImages').addEventListener('click', exportAsImages);
-    // document.getElementById('applyThresholds').addEventListener('click', updateThresholdVisualization);
+  document
+    .getElementById("addSegmentBtn")
+    .addEventListener("click", showSegmentForm);
+  document
+    .getElementById("saveSegmentBtn")
+    .addEventListener("click", saveSegment);
+  document
+    .getElementById("cancelSegmentBtn")
+      .addEventListener("click", hideSegmentForm);
+  
+  // Video upload
+  document.getElementById('videoUpload').addEventListener('change', handleVideoUpload);
+  
+  // Controls
+  document.getElementById('togglePose').addEventListener('click', togglePoseDetection);
+  document.getElementById('extractFrames').addEventListener('click', extractPhaseFrames);
+  document.getElementById('saveFrames').addEventListener('click', saveFrameData);
+  
+  // Threshold controls
+  setupThresholdControls();
+  
+  // Segment phase dropdown listener
+  setupSegmentPhaseListener();
+  
+  // Export buttons
+  document.getElementById('exportJson').addEventListener('click', exportAsJson);
+  document.getElementById('exportImages').addEventListener('click', exportAsImages);
 }
 
 
@@ -733,7 +933,15 @@ function handleVideoUpload(event) {
     if (!file) return;
     
     videoPlayer = document.getElementById('videoPlayer');
-    poseCanvas = document.getElementById('poseCanvas');
+  poseCanvas = document.getElementById('poseCanvas');
+  if (!poseCanvas) {
+    poseCanvas = document.createElement("canvas");
+    poseCanvas.id = "poseCanvas";
+    poseCanvas.className = "pose-canvas";
+    videoPlayer.parentNode.insertBefore(poseCanvas, videoPlayer.nextSibling);
+    // console.error("Pose canvas element not found");
+    // return;
+  }
     poseCtx = poseCanvas.getContext('2d');
     
     const url = URL.createObjectURL(file);
@@ -745,14 +953,25 @@ function handleVideoUpload(event) {
         document.getElementById('videoSection').style.display = 'block';
         document.getElementById('extractFrames').disabled = false;
         
-        // Set default phase ranges
-        document.getElementById('startPhaseMin').value = 0;
-        document.getElementById('startPhaseMax').value = (videoDuration * 0.3).toFixed(1);
-        document.getElementById('holdPhaseMin').value = (videoDuration * 0.35).toFixed(1);
-        document.getElementById('holdPhaseMax').value = (videoDuration * 0.65).toFixed(1);
-        document.getElementById('endPhaseMin').value = (videoDuration * 0.7).toFixed(1);
-        document.getElementById('endPhaseMax').value = videoDuration.toFixed(1);
-    };
+      // Set default phase ranges
+      const phaseTimeRanges = document.getElementById("phaseTimeRanges");
+      if (phaseTimeRanges) {
+        document.getElementById("startPhaseMin").value = 0;
+        document.getElementById("startPhaseMax").value = (
+          videoDuration * 0.3
+        ).toFixed(1);
+        document.getElementById("holdPhaseMin").value = (
+          videoDuration * 0.35
+        ).toFixed(1);
+        document.getElementById("holdPhaseMax").value = (
+          videoDuration * 0.65
+        ).toFixed(1);
+        document.getElementById("endPhaseMin").value = (
+          videoDuration * 0.7
+        ).toFixed(1);
+        document.getElementById("endPhaseMax").value = videoDuration.toFixed(1);
+          }
+        };
     
     // Video event listeners
     videoPlayer.addEventListener('play', () => {
@@ -883,35 +1102,42 @@ function clearCanvas() {
 async function extractPhaseFrames() {
   if (!videoPlayer) return;
 
-  // Get phase ranges with null checks
-  const startMin = parseFloat(document.getElementById("startPhaseMin")?.value);
-  const startMax = parseFloat(document.getElementById("startPhaseMax")?.value);
-  const holdMin = parseFloat(document.getElementById("holdPhaseMin")?.value);
-  const holdMax = parseFloat(document.getElementById("holdPhaseMax")?.value);
-  const endMin = parseFloat(document.getElementById("endPhaseMin")?.value);
-  const endMax = parseFloat(document.getElementById("endPhaseMax")?.value);
+  const phaseRanges = [];
+  const phaseRows = document.querySelectorAll("#phaseTimeRanges .phase-row");
 
-  // Validate ranges
-  if (
-    isNaN(startMin) ||
-    isNaN(startMax) ||
-    isNaN(holdMin) ||
-    isNaN(holdMax) ||
-    isNaN(endMin) ||
-    isNaN(endMax)
-  ) {
-    alert("Please enter valid time ranges for all phases");
+  if (phaseRows.length === 0) {
+    alert("Please add at least one phase");
     return;
   }
 
-  // Define phase ranges
-  const phaseRanges = [
-    { name: "Starting", min: startMin, max: startMax },
-    { name: "Holding", min: holdMin, max: holdMax },
-    { name: "Ending", min: endMin, max: endMax },
-  ];
+  // Extract phase ranges with validation
+  for (const row of phaseRows) {
+    const label = row.querySelector(".phase-label")?.textContent || "";
+    const phaseName = label.replace(" Phase:", "").trim();
 
-  extractedFrames = [];
+    const minInput = row.querySelector(".range-input:nth-of-type(1)");
+    const maxInput = row.querySelector(".range-input:nth-of-type(2)");
+
+    const min = parseFloat(minInput?.value);
+    const max = parseFloat(maxInput?.value);
+
+    if (isNaN(min)) {
+      alert(`Please enter a valid start time for ${phaseName} phase`);
+      return;
+    }
+    if (isNaN(max)) {
+      alert(`Please enter a valid end time for ${phaseName} phase`);
+      return;
+    }
+    if (min >= max) {
+      alert(`End time must be after start time for ${phaseName} phase`);
+      return;
+    }
+
+    phaseRanges.push({ name: phaseName, min, max });
+  }
+
+  // Setup UI
   const progressSection = document.getElementById("progressSection");
   const progressFill = document.getElementById("progressFill");
   const statusMessage = document.getElementById("statusMessage");
@@ -922,18 +1148,21 @@ async function extractPhaseFrames() {
     statusMessage.className = "status-message";
   }
 
-  // Extract multiple frames from each phase (every 0.5 seconds)
+  extractedFrames = [];
+
+  // Frame extraction logic
   for (let i = 0; i < phaseRanges.length; i++) {
     const phase = phaseRanges[i];
-    const interval = 0.5; // seconds between frames
+    const interval = 0.5; // seconds
     let currentTime = phase.min;
+    let frameCount = 1;
 
     while (currentTime <= phase.max) {
-      // Update progress
       const progress =
         ((i + (currentTime - phase.min) / (phase.max - phase.min)) /
           phaseRanges.length) *
         100;
+
       if (progressFill) progressFill.style.width = progress + "%";
       if (statusMessage) {
         statusMessage.textContent = `Extracting ${
@@ -941,58 +1170,65 @@ async function extractPhaseFrames() {
         } frame at ${currentTime.toFixed(2)}s...`;
       }
 
-      // Seek to position
       await seekToTime(currentTime);
-
-      // Process pose
       await processCurrentFrame();
-
-      // Wait for pose results
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      // Capture frame
-      const frameData = await captureFrame(phase.name, currentTime);
+      const frameData = await captureFrame(
+        `${phase.name} Frame ${frameCount}`,
+        currentTime
+      );
       if (frameData) {
         extractedFrames.push(frameData);
+        frameCount++;
       }
 
       currentTime += interval;
     }
   }
 
+  // Display all extracted frames
+  displayExtractedFrames();
+
+  // Update phase dropdown in segment form
+  const segmentPhaseDropdown = document.getElementById("segmentPhase");
+  segmentPhaseDropdown.innerHTML = "";
+  phaseRanges.forEach((phase) => {
+    const option = document.createElement("option");
+    option.value = phase.name;
+    option.textContent = phase.name;
+    segmentPhaseDropdown.appendChild(option);
+  });
+
+  // Final UI updates
   if (statusMessage) {
     statusMessage.textContent = "Extraction complete!";
     statusMessage.className = "status-message status-success";
   }
 
-  // displayExtractedFrames();
-  document.getElementById("segmentControls").style.display = "block";
+  const segmentControls = document.getElementById("segmentControls");
+  if (segmentControls) segmentControls.style.display = "block";
 
+  ["saveFrames", "applyThresholds", "exportJson", "exportImages"].forEach(
+    (id) => {
+      const btn = document.getElementById(id);
+      if (btn) btn.disabled = false;
+    }
+  );
 
-  // Add null checks before disabling buttons
-  const saveFramesBtn = document.getElementById("saveFrames");
-  const applyThresholdsBtn = document.getElementById("applyThresholds");
-  const exportJsonBtn = document.getElementById("exportJson");
-  const exportImagesBtn = document.getElementById("exportImages");
-
-  if (saveFramesBtn) saveFramesBtn.disabled = false;
-  if (applyThresholdsBtn) applyThresholdsBtn.disabled = false;
-  if (exportJsonBtn) exportJsonBtn.disabled = false;
-  if (exportImagesBtn) exportImagesBtn.disabled = false;
-
-  // Store the data for visualization
-  frameData = {
+  // Store data for visualization
+  window.frameData = {
     timestamp: new Date().toISOString(),
     videoDuration: videoDuration,
-    segments: [],
+    frames: extractedFrames,
   };
 
-  // Enable threshold checkboxes with null checks
   const checkboxes = document.querySelectorAll(".threshold-checkbox");
   checkboxes.forEach((checkbox) => {
     if (checkbox) checkbox.disabled = false;
   });
 }
+
 
 // Seek to specific time
 function seekToTime(time) {
@@ -1041,43 +1277,54 @@ async function captureFrame(name, time) {
 
 // Display extracted frames
 function displayExtractedFrames() {
-    const container = document.getElementById('framesPreview');
-    container.innerHTML = '';
-    
-    extractedFrames.forEach(frame => {
-        const frameCard = document.createElement('div');
-        frameCard.className = 'frame-card';
-        
-        const title = document.createElement('div');
-        title.className = 'frame-title';
-        title.textContent = `${frame.name} Frame (${frame.time.toFixed(2)}s)`;
-        
-        const canvasContainer = document.createElement('div');
-        canvasContainer.className = 'frame-canvas-container';
-        
-        const canvas = document.createElement('canvas');
-        canvas.className = 'frame-canvas';
-        canvas.width = 400;
-        canvas.height = (400 / frame.width) * frame.height;
-        
-        const ctx = canvas.getContext('2d');
-        const img = new Image();
-        img.onload = () => {
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            drawPoseOnCanvas(frame.landmarks, ctx, canvas.width, canvas.height);
-        };
-        img.src = frame.imageData;
-        
-        canvasContainer.appendChild(canvas);
-        frameCard.appendChild(title);
-        frameCard.appendChild(canvasContainer);
-        container.appendChild(frameCard);
-    });
-    document.getElementById("segmentControls").style.display = "block";
+  const container = document.getElementById('framesPreview');
+  container.innerHTML = '';
+  
+  // extractedFrames.forEach((frame, index) => {
+  //     const frameCard = document.createElement('div');
+  //     frameCard.className = 'frame-card';
+      
+  //     const title = document.createElement('div');
+  //     title.className = 'frame-title';
+  //     title.textContent = `${frame.name} (${frame.time.toFixed(2)}s)`;
+      
+  //     const canvasContainer = document.createElement('div');
+  //     canvasContainer.className = 'frame-canvas-container';
+      
+  //     const canvas = document.createElement('canvas');
+  //     canvas.className = 'frame-canvas';
+  //     canvas.width = 400;
+  //     canvas.height = (400 / frame.width) * frame.height;
+      
+  //     const ctx = canvas.getContext('2d');
+  //     const img = new Image();
+  //     img.onload = () => {
+  //         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  //         drawPoseOnCanvas(frame.landmarks, ctx, canvas.width, canvas.height);
+  //     };
+  //     img.src = frame.imageData;
+      
+  //     canvasContainer.appendChild(canvas);
+  //     frameCard.appendChild(title);
+  //     frameCard.appendChild(canvasContainer);
+  //     container.appendChild(frameCard);
+  // });
+  
+  const summaryDiv = document.createElement("div");
+  summaryDiv.className = "extraction-summary";
+  summaryDiv.innerHTML = `
+    <h3>Frame Extraction Complete</h3>
+    <p>${extractedFrames.length} frames extracted from ${
+    new Set(extractedFrames.map((f) => f.name.split(" ")[0])).size
+  } phases</p>
+    <p>Use "Add Segment" to select specific frames for analysis.</p>
+  `;
+  container.appendChild(summaryDiv);
+  document.getElementById("segmentControls").style.display = "block";
 }
 
-// Draw pose on specific canvas
 
+// Draw pose on specific canvas
 function drawPoseOnCanvas(landmarks, ctx, width, height) {
   if (!landmarks || landmarks.length === 0) return;
 
