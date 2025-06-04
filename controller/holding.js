@@ -1,4 +1,4 @@
-import { calculateDtwScore } from '../utils/utils.js';
+import { calculateDtwScore, calculateEuclideanDistance } from '../utils/utils.js';
 import { drawDtwScores, printTextOnFrame } from '../utils/camera_utils.js';
 
 export function checkPoseSuccess(idealKeypoints, normalizedKeypoints, thresholds) {
@@ -9,6 +9,18 @@ export function checkPoseSuccess(idealKeypoints, normalizedKeypoints, thresholds
     return dtwWhole < thresholds[0] && dtwHand < thresholds[1] && dtwShoulder < thresholds[2];
 }
 
+/**
+ * Calculate the Euclidean distance between two 2D points.
+ *
+ * @param {number[]} p1  An array [x1, y1].
+ * @param {number[]} p2  An array [x2, y2].
+ * @returns {number}     The distance = √((x2–x1)² + (y2–y1)²).
+ */
+function calculateDistance(p1, p2) {
+  const dx = p2[0] - p1[0];
+  const dy = p2[1] - p1[1];
+  return Math.hypot(dx, dy);
+}
 export function checkBendback(ctx, idealKeypoints, normalizedKeypoints, hipPoint, thresholds) {
     if (!normalizedKeypoints) {
         printTextOnFrame(ctx, 'Keypoints not detected', { x: 50, y: 50 }, 'red');
@@ -40,16 +52,18 @@ export function checkBendback(ctx, idealKeypoints, normalizedKeypoints, hipPoint
     const height  = ctx.canvas.height;
     const userPix = [ userNorm[0] * width,  userNorm[1] * height ];
     const idealPix= [ idealNorm[0]* width,  idealNorm[1]* height ];
-
-
-    const minDimension = Math.min(width, height);
-    const radius = thresholds[1] * minDimension / 2;
-    ctx.strokeStyle = "#FF0000"; // Red circle
-    ctx.lineWidth = 2; // Line width of 2 pixels
-    // Draw the circle
-    ctx.beginPath();
-    ctx.arc(idealPix[0], idealPix[1], radius, 0, Math.PI * 2);
-    ctx.stroke();
+    const hipPix = [hipNorm[0]*width, hipNorm[1]*height];
+    
+    // const Dist = calculateDistance(hipPix, idealNorm);
+    // const DistPix = calculateDistance(hipPix, idealPix);
+    // console.log("Distance between hip and wrist is : ", Dist);
+    // const radius = 0.193798 * DistPix;
+    // ctx.strokeStyle = "#FF0000"; // Red circle
+    // ctx.lineWidth = 2; // Line width of 2 pixels
+    // // Draw the circle
+    // ctx.beginPath();
+    // ctx.arc(idealPix[0], idealPix[1], radius, 0, Math.PI * 2);
+    // ctx.stroke();
     // Draw guidance arrow in yellow
     ctx.beginPath();
     ctx.moveTo(userPix[0], userPix[1]);

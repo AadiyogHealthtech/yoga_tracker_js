@@ -27,20 +27,63 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!--
+    Yoga Tracker - Batch Processing HTML
+    --------------------------------------
+    This file sets up the layout for batch processing a pre-recorded yoga video.
+    It includes:
+      1. A <video> element for playback of Avuvittasana_female_video.mp4.
+      2. An overlay <canvas> for visualization or debugging (if needed).
+      3. A "Process Video" button to begin frame-by-frame pose analysis and JSON export.
+      4. MediaPipe Pose runtime is loaded globally via CDN.
+      5. 'process_video.js' handles the core logic of extracting normalized keypoints
+         and packaging them into a downloadable JSON.
+  -->
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Yoga Tracker</title>
   <style>
+    /*
+      Global Styles:
+      - Reset default body margin.
+      - Use a clean sans-serif font.
+      - Light gray background for subtle contrast.
+    */
     body { margin: 0; font-family: Arial, sans-serif; }
+    /*
+      #videoContainer:
+      - Centers the video + canvas block horizontally.
+      - Sets a fixed width (640px) for consistent layout.
+      - Adds vertical margin to separate from page edges.
+    */
     #videoContainer { position: relative; display: inline-block; }
+     /*
+      video, canvas:
+      - Both should fill the width of their container (100%).
+      - Maintain aspect ratio (height:auto).
+      - The <canvas> sits on top of the <video> (absolute positioning handled in JS if needed).
+    */
     video, canvas { display: block; }
     video { z-index: 0; max-width: 100%; height: auto; }
     canvas { position: absolute; top: 0; left: 0; z-index: 1; }
   </style>
 </head>
 <body>
-  <div id="videoContainer">
 
+  <!--
+    Main Container for Video + Canvas
+    ----------------------------------
+    <video id="videoElement" controls>
+      This HTML5 <video> element plays the pre-recorded yoga tutorial.
+      Autoplay/loop attributes are omitted here, since control is manual via "Process Video" button.
+    </video>
+
+    <canvas id="outputCanvas"></canvas>
+      This <canvas> can be used to overlay visualizations or debug drawings (e.g., pose landmarks) as the
+      video is processed. process_video.js will capture frames into this canvas before sending to MediaPipe.
+  -->
+
+  <div id="videoContainer">
     <video
       id="videoElement"
       muted
