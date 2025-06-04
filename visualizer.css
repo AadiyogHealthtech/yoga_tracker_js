@@ -505,3 +505,33 @@
     margin-left: 10px;
     border: 1px solid #ddd;
 }
+
+nav {
+    background-color: #282c34;
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 2rem;
+}
+
+nav .logo {
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+nav .nav-links {
+    display: flex;
+    gap: 1.5rem;
+}
+
+nav .nav-links a {
+    color: white;
+    text-decoration: none;
+    font-size: 1rem;
+    transition: color 0.3s ease;
+}
+
+nav .nav-links a:hover {
+    color: #61dafb;
+}

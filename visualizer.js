@@ -133,6 +133,28 @@ function hideSegmentForm() {
 }
 
 
+// function saveSegment() {
+//   const phase = document.getElementById("segmentPhase").value;
+//   const feedback = document.getElementById("segmentFeedback").value;
+
+//   if (selectedFrameForSegment === null) {
+//     alert("Please select a frame for this segment");
+//     return;
+//   }
+
+//   const segment = {
+//     id: Date.now(),
+//     phase,
+//     feedback,
+//     frameIndex: selectedFrameForSegment,
+//     thresholds: {}, // Initialize empty thresholds
+//   };
+
+//   segments.push(segment);
+//   updateSegmentsList();
+//   hideSegmentForm();
+// }
+
 function saveSegment() {
   const phase = document.getElementById("segmentPhase").value;
   const feedback = document.getElementById("segmentFeedback").value;
@@ -147,13 +169,29 @@ function saveSegment() {
     phase,
     feedback,
     frameIndex: selectedFrameForSegment,
-    thresholds: {}, // Initialize empty thresholds
+    thresholds: {},
   };
 
   segments.push(segment);
+
+  // Also update frameData if you're using it
+  if (frameData) {
+    const frame = extractedFrames[selectedFrameForSegment];
+    frameData.segments.push({
+      ...segment,
+      frameData: {
+        imageData: frame.imageData,
+        landmarks: frame.landmarks,
+        width: frame.width,
+        height: frame.height,
+      },
+    });
+  }
+
   updateSegmentsList();
   hideSegmentForm();
 }
+
 function drawThresholdCircles(segment, ctx, width, height, landmarks) {
     if (!segment.thresholds) return;
     
@@ -945,7 +983,8 @@ async function extractPhaseFrames() {
   // Store the data for visualization
   frameData = {
     timestamp: new Date().toISOString(),
-    frames: extractedFrames,
+    videoDuration: videoDuration,
+    segments: [],
   };
 
   // Enable threshold checkboxes with null checks
@@ -1085,28 +1124,43 @@ function drawPoseOnCanvas(landmarks, ctx, width, height) {
 
 // Save frame data
 function saveFrameData() {
-    if (extractedFrames.length === 0) return;
-    
-    const data = {
-        timestamp: new Date().toISOString(),
-        frames: extractedFrames
-    };
-    
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `pose-frames-${new Date().toISOString()}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
-    // Show success message
-    const statusMessage = document.getElementById('statusMessage');
-    statusMessage.textContent = 'Frame data saved successfully!';
-    statusMessage.className = 'status-message status-success';
+  if (segments.length === 0) return;
+
+  const data = {
+    timestamp: new Date().toISOString(),
+    videoDuration: videoDuration,
+    segments: segments.map((segment) => {
+      const frame = extractedFrames[segment.frameIndex];
+      return {
+        phase: segment.phase,
+        feedback: segment.feedback,
+        time: frame.time,
+        thresholds: segment.thresholds || {},
+        frameData: {
+          imageData: frame.imageData,
+          landmarks: frame.landmarks,
+        },
+      };
+    }),
+  };
+
+  const blob = new Blob([JSON.stringify(data, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `pose-segments-${new Date().toISOString()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  // Show success message
+  const statusMessage = document.getElementById("statusMessage");
+  statusMessage.textContent = "Segment data saved successfully!";
+  statusMessage.className = "status-message status-success";
 }
 
 // Update threshold visualization
@@ -1223,19 +1277,58 @@ function updateDataPreview(activeThresholds) {
 }
 
 // Export as JSON
+// function exportAsJson() {
+//     if (!frameData) return;
+    
+//     const blob = new Blob([JSON.stringify(frameData, null, 2)], { type: 'application/json' });
+//     const url = URL.createObjectURL(blob);
+    
+//     const a = document.createElement('a');
+//     a.href = url;
+//     a.download = `pose-analysis-${new Date().toISOString()}.json`;
+//     document.body.appendChild(a);
+//     a.click();
+//     document.body.removeChild(a);
+//     URL.revokeObjectURL(url);
+// }
+
 function exportAsJson() {
-    if (!frameData) return;
-    
-    const blob = new Blob([JSON.stringify(frameData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `pose-analysis-${new Date().toISOString()}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  if (segments.length === 0) return;
+
+  // Prepare the data to save - only segments with their associated frame data
+  const dataToSave = {
+    timestamp: new Date().toISOString(),
+    videoDuration: videoDuration,
+    segments: segments.map((segment) => {
+      const frame = extractedFrames[segment.frameIndex];
+      return {
+        id: segment.id,
+        phase: segment.phase,
+        feedback: segment.feedback,
+        time: frame.time,
+        thresholds: segment.thresholds || {},
+        frameData: {
+          imageData: frame.imageData,
+          landmarks: frame.landmarks,
+          width: frame.width,
+          height: frame.height,
+        },
+      };
+    }),
+  };
+
+  const blob = new Blob([JSON.stringify(dataToSave, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `pose-segments-${new Date().toISOString()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 // Export as images
