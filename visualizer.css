@@ -8,7 +8,7 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #040920 0%, #453cc0 100%);
             min-height: 100vh;
             color: #333;
         }
@@ -211,7 +211,8 @@
             margin-bottom: 15px;
             padding: 10px;
             border-radius: 8px;
-            background: #f8f9fa;
+            background: #083e75;
+            color: #453cc0;
         }
 
         .threshold-checkbox {
@@ -390,6 +391,7 @@
     display: flex;
     justify-content: space-between;
     margin-bottom: 10px;
+    color: red;
 }
 
 .segment-phase {
@@ -563,3 +565,38 @@ nav .nav-links a:hover {
     position: relative;
     display: inline-block;
 }
+
+.extraction-summary{
+    color: #28a745;
+}
+
+#segmentControls{
+    color: rgb(255, 255, 255);
+    margin-top: 9px;
+    margin-bottom: 9px;
+}
+
+#addSegmentBtn{
+    margin-top: 12px;
+}
+
+#segmentsList{
+    
+}
+
+#progressSection{
+    color: #20c997;
+}
+
+.no-frames-message {
+    padding: 15px;
+    background: #f8f8f8;
+    border-radius: 5px;
+    text-align: center;
+  }
+  
+  .no-frames-message .hint {
+    font-size: 0.9em;
+    color: #666;
+    margin-top: 8px;
+  }

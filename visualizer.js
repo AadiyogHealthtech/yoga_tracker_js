@@ -97,37 +97,52 @@ function setupPhaseSelection() {
   const phaseTimeRanges = document.getElementById("phaseTimeRanges");
 
   addPhaseBtn.addEventListener("click", () => {
-    const selectedPhase = phaseSelect.value;
+    const selectedPhase = phaseSelect.value.trim();
     if (!selectedPhase) {
       alert("Please select a phase first");
       return;
     }
 
-    // Check if this phase already exists
-    if (document.getElementById(`${selectedPhase.toLowerCase()}PhaseMin`)) {
-      alert("This phase has already been added");
-      return;
-    }
+    // Normalize the base phase name (e.g., remove any trailing numbers or whitespace)
+    const basePhaseName = selectedPhase.replace(/\s*\d+$/, "");
+
+    // Get all existing phases and normalize their base names
+    const existingPhases = Array.from(
+      document.querySelectorAll(".phase-label")
+    ).map((el) => el.textContent.replace(" Phase:", "").trim());
+
+    const samePhases = existingPhases.filter((name) => {
+      const base = name.replace(/\s*\d+$/, "").toLowerCase();
+      return base === basePhaseName.toLowerCase();
+    });
+
+    const phaseNumber = samePhases.length + 1;
+    const displayPhaseName = `${basePhaseName} `;
+    const phaseId = `${basePhaseName
+      .toLowerCase()
+      .replace(/\s+/g, "")}Phase${phaseNumber}`;
 
     // Create new phase time range inputs
     const phaseDiv = document.createElement("div");
     phaseDiv.className = "phase-row";
     phaseDiv.innerHTML = `
-          <label class="phase-label">${selectedPhase} Phase:</label>
-          <input type="number" id="${selectedPhase.toLowerCase()}PhaseMin" class="range-input" placeholder="Start time" min="0" step="0.1">
-          <span>to</span>
-          <input type="number" id="${selectedPhase.toLowerCase()}PhaseMax" class="range-input" placeholder="End time" min="0.1" step="0.1">
-          <button class="btn secondary remove-phase" data-phase="${selectedPhase}">Remove</button>
-      `;
+      <label class="phase-label">${displayPhaseName} Phase: ${phaseNumber}</label>
+      <input type="number" id="${phaseId}PhaseMin" class="range-input" placeholder="Start time" min="0" step="0.1">
+      <span>to</span>
+      <input type="number" id="${phaseId}PhaseMax" class="range-input" placeholder="End time" min="0.1" step="0.1">
+      <button class="btn secondary remove-phase" data-phase="${displayPhaseName}">Remove</button>
+    `;
 
     phaseTimeRanges.appendChild(phaseDiv);
 
     // Add remove button handler
-    phaseDiv.querySelector(".remove-phase").addEventListener("click", (e) => {
+    phaseDiv.querySelector(".remove-phase").addEventListener("click", () => {
       phaseDiv.remove();
     });
   });
 }
+
+
 // Add this function to handle phase dropdown changes in the segment form
 function setupSegmentPhaseListener() {
   const segmentPhaseDropdown = document.getElementById("segmentPhase");
@@ -152,10 +167,9 @@ function showSegmentFramesForCurrentPhase() {
 
   const selectedPhase = document.getElementById("segmentPhase").value;
 
-  // Filter frames by selected phase (case-insensitive match)
+// Filter frames by exact phase name match (including numbers)
   const phaseFrames = extractedFrames.filter((frame) => {
-    const framePhase = frame.name.split(" ")[0].toLowerCase();
-    return framePhase === selectedPhase.toLowerCase();
+    return frame.name.startsWith(selectedPhase);
   });
 
   if (phaseFrames.length === 0) {
@@ -1112,8 +1126,8 @@ async function extractPhaseFrames() {
 
   // Extract phase ranges with validation
   for (const row of phaseRows) {
-    const label = row.querySelector(".phase-label")?.textContent || "";
-    const phaseName = label.replace(" Phase:", "").trim();
+      const label = row.querySelector(".phase-label")?.textContent || "";
+      const phaseName = label.replace(" Phase:", "").trim();
 
     const minInput = row.querySelector(".range-input:nth-of-type(1)");
     const maxInput = row.querySelector(".range-input:nth-of-type(2)");
@@ -1153,7 +1167,7 @@ async function extractPhaseFrames() {
   // Frame extraction logic
   for (let i = 0; i < phaseRanges.length; i++) {
     const phase = phaseRanges[i];
-    const interval = 0.5; // seconds
+    const interval = 0.04; // seconds
     let currentTime = phase.min;
     let frameCount = 1;
 
@@ -1279,37 +1293,6 @@ async function captureFrame(name, time) {
 function displayExtractedFrames() {
   const container = document.getElementById('framesPreview');
   container.innerHTML = '';
-  
-  // extractedFrames.forEach((frame, index) => {
-  //     const frameCard = document.createElement('div');
-  //     frameCard.className = 'frame-card';
-      
-  //     const title = document.createElement('div');
-  //     title.className = 'frame-title';
-  //     title.textContent = `${frame.name} (${frame.time.toFixed(2)}s)`;
-      
-  //     const canvasContainer = document.createElement('div');
-  //     canvasContainer.className = 'frame-canvas-container';
-      
-  //     const canvas = document.createElement('canvas');
-  //     canvas.className = 'frame-canvas';
-  //     canvas.width = 400;
-  //     canvas.height = (400 / frame.width) * frame.height;
-      
-  //     const ctx = canvas.getContext('2d');
-  //     const img = new Image();
-  //     img.onload = () => {
-  //         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-  //         drawPoseOnCanvas(frame.landmarks, ctx, canvas.width, canvas.height);
-  //     };
-  //     img.src = frame.imageData;
-      
-  //     canvasContainer.appendChild(canvas);
-  //     frameCard.appendChild(title);
-  //     frameCard.appendChild(canvasContainer);
-  //     container.appendChild(frameCard);
-  // });
-  
   const summaryDiv = document.createElement("div");
   summaryDiv.className = "extraction-summary";
   summaryDiv.innerHTML = `
