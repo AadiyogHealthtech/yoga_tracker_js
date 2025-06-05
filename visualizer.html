@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yoga Pose Phase Analysis</title>
+    <link rel="stylesheet" href="visualizer.css">
+    <!-- MediaPipe Pose -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+</head>
+<body>
+    <nav>
+        <div class="logo">Yoga Tracker</div>
+        <div class="nav-links">
+            <a href="index.html">Home</a>
+            <a href="visualizer.html">Segmentor Frontend</a>
+        </div>
+    </nav>
+    <div class="container">
+        <div class="header">
+            <h1>🧘‍♀️ Yoga Pose Phase Analysis</h1>
+            <p>Analyze starting, holding, and ending phases of yoga poses</p>
+        </div>
+
+        <div class="upload-section">
+            <h3>Upload Yoga Pose Video</h3>
+            <p>Select a video file to analyze the different phases of the pose</p>
+            <input type="file" id="videoUpload" class="file-input" accept="video/*">
+            <button class="upload-btn" onclick="document.getElementById('videoUpload').click()">
+                📹 Choose Video File
+            </button>
+        </div>
+
+        <div id="videoSection" style="display: none;">
+            <div class="video-container">
+                <video id="videoPlayer" controls></video>
+                <canvas id="poseCanvas" class="pose-canvas"></canvas>
+            </div>
+
+            <div class="controls">
+                <button id="togglePose" class="btn">Enable Pose Detection</button>
+                <button id="extractFrames" class="btn" disabled>Extract Phase Frames</button>
+                <button id="saveFrames" class="btn" disabled>Save Frame Data</button>
+            </div>
+
+        <div class="phase-controls">
+    <h3>Phase Selection</h3>
+    <div class="phase-row">
+        <label class="phase-label">Select Phase:</label>
+        <select id="phaseSelect" class="form-control">
+            <option value="">-- Select a phase --</option>
+            <option value="Starting">Starting Phase</option>
+            <option value="Holding1">Holding Phase</option>
+            <option value="Transition">Transition Phase</option>
+            <option value="Ending">Ending Phase</option>
+            <option value="Relaxation">Relaxation Phase</option>
+        </select>
+        <button id="addPhaseBtn" class="btn">Add Phase</button>
+    </div>
+    
+
+    <div id="phaseTimeRanges" class="phase-time-ranges">
+        <!-- Dynamic phase time ranges will be added here -->
+    </div>
+</div>
+
+            <div id="progressSection" style="display: none;">
+                <div class="progress-bar">
+                    <div id="progressFill" class="progress-fill"></div>
+                </div>
+                <div id="statusMessage" class="status-message"></div>
+            </div>
+
+            <div id="framesPreview" class="frames-grid"></div>
+            <div id="segmentControls" style="display: none;">
+                <h3>Segment Analysis</h3>
+                <button id="addSegmentBtn" class="btn">➕ Add Segment</button>
+                
+                <div id="segmentFormContainer" style="display: none; margin-top: 20px;">
+                    <div class="segment-form">
+                        <div class="form-group">
+                            <label for="segmentPhase">Phase:</label>
+                            <select id="segmentPhase" class="form-control">
+                                <option value="Starting">Starting Phase</option>
+                                <option value="Holding">Holding Phase</option>
+                                <option value="Ending">Ending Phase</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="segmentFeedback">Feedback:</label>
+                            <textarea id="segmentFeedback" class="form-control" rows="3" placeholder="Enter feedback for this segment"></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Select Frame:</label>
+                            <div id="frameSelection" class="frames-grid"></div>
+                        </div>
+                        
+                        <button id="saveSegmentBtn" class="btn">💾 Save Segment</button>
+                        <button id="cancelSegmentBtn" class="btn secondary">❌ Cancel</button>
+                    </div>
+                </div>
+                
+                <div id="segmentsList" class="segments-container"></div>
+            </div>
+        </div>
+
+        <div class="export-section">
+            <h3>Export Data</h3>
+            <button id="exportJson" class="btn" disabled>Export as JSON</button>
+            <button id="exportImages" class="btn" disabled>Export Images</button>
+            <div id="dataPreview" class="data-preview" style="display: none;"></div>
+        </div>
+    </div>
+
+   <script src="visualizer.js"></script>
+</body>
+</html>
