@@ -43,16 +43,16 @@ const BODY_PARTS = {
 };
 
 const THRESHOLD_COLORS = {
-  nose: "rgba(255, 0, 0, 0.3)",
+  nose: "rgba(130, 25, 25, 0.3)",
   leftEye: "rgba(0, 255, 0, 0.3)",
   rightEye: "rgba(0, 0, 255, 0.3)",
-  leftShoulder: "rgba(255, 255, 0, 0.3)",
-  rightShoulder: "rgba(255, 0, 255, 0.3)",
+  leftShoulder: "rgba(20, 20, 1, 0.3)",
+  rightShoulder: "rgba(65, 4, 65, 0.3)",
   leftElbow: "rgba(0, 255, 255, 0.3)",
   rightElbow: "rgba(128, 0, 0, 0.3)",
   leftWrist: "rgba(0, 128, 0, 0.3)",
   rightWrist: "rgba(0, 0, 128, 0.3)",
-  leftHip: "rgba(128, 128, 0, 0.3)",
+  leftHip: "rgba(32, 32, 22, 0.3)",
   rightHip: "rgba(128, 0, 128, 0.3)",
   leftKnee: "rgba(0, 128, 128, 0.3)",
   rightKnee: "rgba(64, 64, 64, 0.3)",
@@ -150,10 +150,9 @@ function setupSegmentPhaseListener() {
     segmentPhaseDropdown.addEventListener("change", () => {
       // Clear the current selection
       selectedFrameForSegment = null;
-      
       // Refresh the frame display for the new phase
       const frameSelection = document.getElementById("frameSelection");
-      if (frameSelection && frameSelection.innerHTML !== "") {
+      if (frameSelection) {
         showSegmentFramesForCurrentPhase();
       }
     });
@@ -297,27 +296,6 @@ function hideSegmentForm() {
 }
 
 
-// function saveSegment() {
-//   const phase = document.getElementById("segmentPhase").value;
-//   const feedback = document.getElementById("segmentFeedback").value;
-
-//   if (selectedFrameForSegment === null) {
-//     alert("Please select a frame for this segment");
-//     return;
-//   }
-
-//   const segment = {
-//     id: Date.now(),
-//     phase,
-//     feedback,
-//     frameIndex: selectedFrameForSegment,
-//     thresholds: {}, // Initialize empty thresholds
-//   };
-
-//   segments.push(segment);
-//   updateSegmentsList();
-//   hideSegmentForm();
-// }
 
 function saveSegment() {
   const phase = document.getElementById("segmentPhase").value;
@@ -344,10 +322,10 @@ function saveSegment() {
     frameData.segments.push({
       ...segment,
       frameData: {
-        imageData: frame.imageData,
+        // imageData: frame.imageData,
         landmarks: frame.landmarks,
-        width: frame.width,
-        height: frame.height,
+        // width: frame.width,
+        // height: frame.height,
       },
     });
   }
@@ -355,33 +333,7 @@ function saveSegment() {
   updateSegmentsList();
   hideSegmentForm();
 }
-function drawThresholdCircles(segment, ctx, width, height, landmarks) {
-  if (!segment.thresholds) return;
 
-  Object.keys(segment.thresholds).forEach((part) => {
-    const threshold = segment.thresholds[part];
-    const index = BODY_PARTS[part];
-    const landmark = landmarks[index];
-
-    if (landmark && landmark.visibility > 0.05) {
-      const x = landmark.x * width;
-      const y = landmark.y * height;
-      const radius = threshold * Math.min(width, height) * 0.1; // Make radius proportional to canvas size
-
-      ctx.strokeStyle = THRESHOLD_COLORS[part];
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(x, y, radius, 0, 2 * Math.PI);
-      ctx.stroke();
-
-      // Add text label
-      ctx.fillStyle = "#000";
-      ctx.font = "14px Arial";
-      ctx.fillText(`${part}: ${threshold.toFixed(2)}`, x + radius + 5, y);
-    }
-  });
-}
-  
 
 function updateSegmentsList() {
   const container = document.getElementById("segmentsList");
@@ -412,10 +364,10 @@ function updateSegmentsList() {
     const frameInfo = document.createElement("p");
     const frame = extractedFrames[segment.frameIndex];
     frameInfo.textContent = `Frame: ${frame.name} (${frame.time.toFixed(2)}s)`;
-
+    frameInfo.className = "frameInfo"
     const feedback = document.createElement("p");
     feedback.textContent = `Feedback: ${segment.feedback}`;
-
+    feedback.className = "feedbackBox"
     const analyzeBtn = document.createElement("button");
     analyzeBtn.className = "btn";
     analyzeBtn.textContent = "Add Thresholds";
@@ -547,9 +499,9 @@ function updateThresholdControls(segment, container) {
     const slider = document.createElement("input");
     slider.type = "range";
     slider.className = "threshold-slider";
-    slider.min = "0.1";
-    slider.max = "2";
-    slider.step = "0.01";
+    slider.min = "10";
+    slider.max = "100";
+    slider.step = "2";
     slider.value = segment.thresholds[part];
     slider.style.width = "200px";
 
@@ -594,61 +546,9 @@ function updateThresholdControls(segment, container) {
 }
 
 
-function createAnalysisContainer() {
-  const container = document.createElement("div");
-  container.id = "segmentAnalysisContainer";
-  container.className = "segment-analysis-container";
-  container.style.display = "none";
-  container.style.marginTop = "30px";
-  container.style.padding = "20px";
-  container.style.backgroundColor = "#f5f5f5";
-  container.style.borderRadius = "8px";
-  container.style.border = "1px solid #ddd";
-
-  // Try different possible parent elements
-  const parent =
-    document.getElementById("mainContent") ||
-    document.getElementById("segmentsList") ||
-    document.body;
-
-  parent.appendChild(container);
-  return container;
-}
 
 // Update the redrawAnalysisCanvas function to properly handle radius changes
-function redrawAnalysisCanvas(canvas, img, frame, segment) {
-  const ctx = canvas.getContext("2d");
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-  drawPoseOnCanvas(frame.landmarks, ctx, canvas.width, canvas.height);
 
-  if (segment && segment.thresholds) {
-    Object.keys(segment.thresholds).forEach((part) => {
-      const threshold = segment.thresholds[part];
-      const index = BODY_PARTS[part];
-      const landmark = frame.landmarks[index];
-
-      if (landmark && landmark.visibility > 0.05) {
-        const x = landmark.x * canvas.width;
-        const y = landmark.y * canvas.height;
-        // Calculate radius based on canvas dimensions and threshold value
-        const baseSize = Math.min(canvas.width, canvas.height);
-        const radius = threshold * baseSize * 0.05; // Adjust multiplier as needed
-
-        ctx.strokeStyle = THRESHOLD_COLORS[part];
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(x, y, radius, 0, 2 * Math.PI);
-        ctx.stroke();
-
-        // Add text label
-        ctx.fillStyle = "#000";
-        ctx.font = "14px Arial";
-        ctx.fillText(`${part}: ${threshold.toFixed(2)}`, x + radius + 5, y);
-      }
-    });
-  }
-}
 
 
 function addSegmentThresholdControls(segment) {
@@ -685,10 +585,10 @@ function addSegmentThresholdControls(segment) {
     slider.type = "range";
     slider.id = `segment-${segment.id}-${part}-threshold`;
     slider.className = "threshold-slider";
-    slider.min = "0.2";
-    slider.max = "2";
-    slider.step = "0.1";
-    slider.value = segment.thresholds?.[part] || "1";
+    slider.min = "5";
+    slider.max = "20";
+    slider.step = "1";
+    slider.value = segment.thresholds?.[part] || "10";
     slider.disabled = !checkbox.checked;
 
     const value = document.createElement("span");
@@ -841,46 +741,6 @@ function updateSegmentThreshold(segment, part, value, enabled) {
   analyzeSegment(segment);
 }
 
-function drawAnalysisCircles(ctx, width, height, landmarks) {
-  // Similar to threshold visualization but with custom logic
-  // Example:
-  const keyPoints = [
-    {
-      part: "leftWrist",
-      index: BODY_PARTS.leftWrist,
-      color: THRESHOLD_COLORS.leftWrist,
-    },
-    {
-      part: "rightWrist",
-      index: BODY_PARTS.rightWrist,
-      color: THRESHOLD_COLORS.rightWrist,
-    },
-    // Add more key points as needed
-  ];
-
-  keyPoints.forEach((point) => {
-    const landmark = landmarks[point.index];
-    if (landmark && landmark.visibility > 0.05) {
-      const x = landmark.x * width;
-      const y = landmark.y * height;
-
-      // Draw multiple concentric circles
-      for (let i = 1; i <= 3; i++) {
-        const radius = i * 50; // Adjust as needed
-        ctx.strokeStyle = point.color;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(x, y, radius, 0, 2 * Math.PI);
-        ctx.stroke();
-
-        // Add text label
-        ctx.fillStyle = "#000";
-        ctx.font = "12px Arial";
-        ctx.fillText(`${radius}px`, x + radius + 5, y);
-      }
-    }
-  });
-}
 
 
 // Setup event listeners
@@ -1367,7 +1227,7 @@ function saveFrameData() {
         time: frame.time,
         thresholds: segment.thresholds || {},
         frameData: {
-          imageData: frame.imageData,
+          // imageData: frame.imageData,
           landmarks: frame.landmarks,
         },
       };
@@ -1394,6 +1254,110 @@ function saveFrameData() {
 }
 
 // Update threshold visualization
+
+
+
+
+// Update data preview
+function updateDataPreview(activeThresholds) {
+  const preview = document.getElementById("dataPreview");
+  preview.style.display = "block";
+
+  let previewText = "Active Thresholds:\n";
+  Object.keys(activeThresholds).forEach((part) => {
+    previewText += `${part}: ${activeThresholds[part]}\n`;
+  });
+
+  previewText += "\nFrame Data:\n";
+  frameData.frames.forEach((frame) => {
+    previewText += `${frame.name} Frame (${frame.time.toFixed(2)}s)\n`;
+  });
+
+  preview.textContent = previewText;
+}
+
+
+
+function exportAsJson() {
+  if (segments.length === 0) return;
+
+  // Prepare the data to save - only segments with their associated frame data
+  const dataToSave = {
+    timestamp: new Date().toISOString(),
+    videoDuration: videoDuration,
+    segments: segments.map((segment) => {
+      const frame = extractedFrames[segment.frameIndex];
+      return {
+        id: segment.id,
+        phase: segment.phase,
+        feedback: segment.feedback,
+        time: frame.time,
+        thresholds: segment.thresholds || {},
+        frameData: {
+          // imageData: frame.imageData,
+          landmarks: frame.landmarks,
+          width: frame.width,
+          height: frame.height,
+        },
+      };
+    }),
+  };
+
+  const blob = new Blob([JSON.stringify(dataToSave, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `pose-segments-${new Date().toISOString()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// Export as images
+function exportAsImages() {
+    if (!frameData || frameData.frames.length === 0) return;
+    
+    // Create a zip file with all images
+    alert("This would normally create a ZIP file with all the images. In this demo, it's just a placeholder.");
+    
+    // In a real implementation, you would use a library like JSZip
+    // to create a zip file containing all the frame images
+}
+
+// Initialize the application when the page loads
+window.addEventListener('DOMContentLoaded', init);
+
+
+function drawThresholdCircles(segment, ctx, width, height, landmarks) {
+  if (!segment.thresholds) return;
+
+  Object.keys(segment.thresholds).forEach((part) => {
+    const threshold = segment.thresholds[part];
+    const index = BODY_PARTS[part];
+    const landmark = landmarks[index];
+
+    if (landmark && landmark.visibility > 0.05) {
+      const x = landmark.x * width;
+      const y = landmark.y * height;
+      const radius = threshold; // direct pixel-based radius
+
+      ctx.strokeStyle = THRESHOLD_COLORS[part];
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, 2 * Math.PI);
+      ctx.stroke();
+
+      // Add text label
+      ctx.fillStyle = "#000";
+      ctx.font = "14px Arial";
+      ctx.fillText(`${part}: ${threshold.toFixed(2)}`, x + radius + 5, y);
+    }
+  });
+}
 
 function updateThresholdVisualization() {
   if (!frameData) return;
@@ -1454,7 +1418,7 @@ function updateThresholdVisualization() {
         if (landmark && landmark.visibility > 0.05) {
           const x = landmark.x * canvas.width;
           const y = landmark.y * canvas.height;
-          const radius = threshold * 50;
+          const radius = threshold;
 
           // Set styles for the circle
           ctx.fillStyle = THRESHOLD_COLORS[part];
@@ -1486,91 +1450,125 @@ function updateThresholdVisualization() {
   updateDataPreview(activeThresholds);
 }
 
+function drawThresholdCircles(segment, ctx, width, height, landmarks) {
+  if (!segment.thresholds) return;
 
+  Object.keys(segment.thresholds).forEach((part) => {
+    const threshold = segment.thresholds[part];
+    const index = BODY_PARTS[part];
+    const landmark = landmarks[index];
 
-// Update data preview
-function updateDataPreview(activeThresholds) {
-  const preview = document.getElementById("dataPreview");
-  preview.style.display = "block";
+    if (landmark && landmark.visibility > 0.05) {
+      const x = landmark.x * width;
+      const y = landmark.y * height;
+      const radius = threshold * Math.min(width, height) * 0.1; // Make radius proportional to canvas size
 
-  let previewText = "Active Thresholds:\n";
-  Object.keys(activeThresholds).forEach((part) => {
-    previewText += `${part}: ${activeThresholds[part]}\n`;
+      ctx.strokeStyle = THRESHOLD_COLORS[part];
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, 2 * Math.PI);
+      ctx.stroke();
+
+      // Add text label
+      ctx.fillStyle = "#000";
+      ctx.font = "14px Arial";
+      ctx.fillText(`${part}: ${threshold.toFixed(2)}`, x + radius + 5, y);
+    }
   });
-
-  previewText += "\nFrame Data:\n";
-  frameData.frames.forEach((frame) => {
-    previewText += `${frame.name} Frame (${frame.time.toFixed(2)}s)\n`;
-  });
-
-  preview.textContent = previewText;
 }
 
-// Export as JSON
-// function exportAsJson() {
-//     if (!frameData) return;
-    
-//     const blob = new Blob([JSON.stringify(frameData, null, 2)], { type: 'application/json' });
-//     const url = URL.createObjectURL(blob);
-    
-//     const a = document.createElement('a');
-//     a.href = url;
-//     a.download = `pose-analysis-${new Date().toISOString()}.json`;
-//     document.body.appendChild(a);
-//     a.click();
-//     document.body.removeChild(a);
-//     URL.revokeObjectURL(url);
-// }
+function createAnalysisContainer() {
+  const container = document.createElement("div");
+  container.id = "segmentAnalysisContainer";
+  container.className = "segment-analysis-container";
+  container.style.display = "none";
+  container.style.marginTop = "30px";
+  container.style.padding = "20px";
+  container.style.backgroundColor = "#f5f5f5";
+  container.style.borderRadius = "8px";
+  container.style.border = "1px solid #ddd";
 
-function exportAsJson() {
-  if (segments.length === 0) return;
+  // Try different possible parent elements
+  const parent =
+    document.getElementById("mainContent") ||
+    document.getElementById("segmentsList") ||
+    document.body;
 
-  // Prepare the data to save - only segments with their associated frame data
-  const dataToSave = {
-    timestamp: new Date().toISOString(),
-    videoDuration: videoDuration,
-    segments: segments.map((segment) => {
-      const frame = extractedFrames[segment.frameIndex];
-      return {
-        id: segment.id,
-        phase: segment.phase,
-        feedback: segment.feedback,
-        time: frame.time,
-        thresholds: segment.thresholds || {},
-        frameData: {
-          imageData: frame.imageData,
-          landmarks: frame.landmarks,
-          width: frame.width,
-          height: frame.height,
-        },
-      };
-    }),
-  };
+  parent.appendChild(container);
+  return container;
+}
 
-  const blob = new Blob([JSON.stringify(dataToSave, null, 2)], {
-    type: "application/json",
+function redrawAnalysisCanvas(canvas, img, frame, segment) {
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  drawPoseOnCanvas(frame.landmarks, ctx, canvas.width, canvas.height);
+
+  if (segment && segment.thresholds) {
+    Object.keys(segment.thresholds).forEach((part) => {
+      const threshold = segment.thresholds[part];
+      const index = BODY_PARTS[part];
+      const landmark = frame.landmarks[index];
+
+      if (landmark && landmark.visibility > 0.05) {
+        const x = landmark.x * canvas.width;
+        const y = landmark.y * canvas.height;
+        // Calculate radius based on canvas dimensions and threshold value
+        const radius = threshold;
+
+        ctx.strokeStyle = THRESHOLD_COLORS[part];
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, 2 * Math.PI);
+        ctx.stroke();
+
+        // Add text label
+        ctx.fillStyle = "#000";
+        ctx.font = "14px Arial";
+        ctx.fillText(`${part}: ${threshold.toFixed(2)}`, x + radius + 5, y);
+      }
+    });
+  }
+}
+
+function drawAnalysisCircles(ctx, width, height, landmarks) {
+  // Similar to threshold visualization but with custom logic
+  // Example:
+  const keyPoints = [
+    {
+      part: "leftWrist",
+      index: BODY_PARTS.leftWrist,
+      color: THRESHOLD_COLORS.leftWrist,
+    },
+    {
+      part: "rightWrist",
+      index: BODY_PARTS.rightWrist,
+      color: THRESHOLD_COLORS.rightWrist,
+    },
+    // Add more key points as needed
+  ];
+
+  keyPoints.forEach((point) => {
+    const landmark = landmarks[point.index];
+    const slider = document.getElementById(point.part + "Threshold");
+
+    if (landmark && landmark.visibility > 0.05 && slider) {
+      const x = landmark.x * width;
+      const y = landmark.y * height;
+      const radius = parseFloat(slider.value);
+
+      ctx.strokeStyle = point.color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, 2 * Math.PI);
+      ctx.stroke();
+
+      // Add text label
+      ctx.fillStyle = "#000";
+      ctx.font = "12px Arial";
+      ctx.fillText(`${radius}px`, x + radius + 5, y);
+    }
   });
-  const url = URL.createObjectURL(blob);
-
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `pose-segments-${new Date().toISOString()}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
 }
 
-// Export as images
-function exportAsImages() {
-    if (!frameData || frameData.frames.length === 0) return;
-    
-    // Create a zip file with all images
-    alert("This would normally create a ZIP file with all the images. In this demo, it's just a placeholder.");
-    
-    // In a real implementation, you would use a library like JSZip
-    // to create a zip file containing all the frame images
-}
 
-// Initialize the application when the page loads
-window.addEventListener('DOMContentLoaded', init);
