@@ -401,7 +401,7 @@ export class StartPhase extends BasePhase {
 export class TransitionPhase extends BasePhase {
     constructor(controller , startFacing) {
         super(controller);
-        this.transitionTimeout = 10; 
+        this.transitionTimeout = 15; 
         this.startFacing = startFacing;
         // this.thresholds = thresholds;
         // this.thresholds = (thresholds ? [...thresholds] : [9.5, 4, 3]).map(t => t * 1.5);
@@ -463,7 +463,7 @@ export class HoldingPhase extends BasePhase {
         console.log(`Thresholds are: ${thresholds}`)
         this.holdStartTime = null;
         this.successDuration = 0;
-        this.minHoldDuration = 1;
+        this.minHoldDuration = 0;
         this.completedHold = false;
         this.exitThresholdMultiplier = 1.1;
         this.leavePoseTime = null;     

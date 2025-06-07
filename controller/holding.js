@@ -1,12 +1,29 @@
-import { calculateDtwScore, calculateEuclideanDistance } from '../utils/utils.js';
-import { drawDtwScores, printTextOnFrame } from '../utils/camera_utils.js';
 
+import { drawDtwScores, printTextOnFrame } from '../utils/camera_utils.js';
+function calculateDtwScore(p1, p2){
+    if (!Array.isArray(p1[0])) p1 = [p1];
+    if (!Array.isArray(p2[0])) p2 = [p2];
+    if (p1.length !== p2.length) {
+        throw new Error("Point arrays must be the same length");
+    }
+
+    let sum = 0;                              
+    const n = p1.length;                        
+
+    for (let i = 0; i < n; i++) {                
+        const dx = p2[i][0] - p1[i][0];
+        const dy = p2[i][1] - p1[i][1];
+        sum += Math.hypot(dx, dy);                 
+    }
+
+    return { dtwDistance: sum / n };  
+}
 export function checkPoseSuccess(idealKeypoints, normalizedKeypoints, thresholds) {
     if (!normalizedKeypoints) return false;
     const { dtwDistance: dtwWhole } = calculateDtwScore(idealKeypoints, normalizedKeypoints);
-    const { dtwDistance: dtwHand } = calculateDtwScore(idealKeypoints.slice(13, 21), normalizedKeypoints.slice(15, 21));
-    const { dtwDistance: dtwShoulder } = calculateDtwScore([idealKeypoints[11], idealKeypoints[12]], [normalizedKeypoints[11], normalizedKeypoints[12]]);
-    return dtwWhole < thresholds[0] && dtwHand < thresholds[1] && dtwShoulder < thresholds[2];
+    const { dtwDistance: dtwLeftWrist } = calculateDtwScore([idealKeypoints[15]], [normalizedKeypoints[15]]);
+    const { dtwDistance: dtwLeftShoulder } = calculateDtwScore([idealKeypoints[11]], [normalizedKeypoints[11]]);
+    return dtwWhole < thresholds[0] && dtwLeftWrist < thresholds[1] && dtwLeftShoulder < thresholds[2];
 }
 
 /**
@@ -16,11 +33,12 @@ export function checkPoseSuccess(idealKeypoints, normalizedKeypoints, thresholds
  * @param {number[]} p2  An array [x2, y2].
  * @returns {number}     The distance = √((x2–x1)² + (y2–y1)²).
  */
-function calculateDistance(p1, p2) {
+function calculateEuclideanDistance(p1, p2) {
   const dx = p2[0] - p1[0];
   const dy = p2[1] - p1[1];
   return Math.hypot(dx, dy);
 }
+
 export function checkBendback(ctx, idealKeypoints, normalizedKeypoints, hipPoint, thresholds) {
     if (!normalizedKeypoints) {
         printTextOnFrame(ctx, 'Keypoints not detected', { x: 50, y: 50 }, 'red');
@@ -28,14 +46,17 @@ export function checkBendback(ctx, idealKeypoints, normalizedKeypoints, hipPoint
     }
 
     const { dtwDistance: dtwWhole } = calculateDtwScore(idealKeypoints, normalizedKeypoints);
-    const { dtwDistance: dtwHand } = calculateDtwScore(idealKeypoints.slice(13, 21), normalizedKeypoints.slice(15, 21));
-    const { dtwDistance: dtwShoulder } = calculateDtwScore([idealKeypoints[11], idealKeypoints[12]], [normalizedKeypoints[11], normalizedKeypoints[12]]);
+    const { dtwDistance: dtwLeftWrist } = calculateDtwScore([idealKeypoints[15]], [normalizedKeypoints[15]]);
+    const { dtwDistance: dtwLeftShoulder } = calculateDtwScore([idealKeypoints[11]], [normalizedKeypoints[11]]);
     const { dtwDistance: dtwTorso } = calculateDtwScore([idealKeypoints[15]], [normalizedKeypoints[15]]);
+
+    const handTh  = thresholds[1] * calculateEuclideanDistance(idealKeypoints[15], idealKeypoints[23]);
+    const shoulTh = thresholds[2] * calculateEuclideanDistance(idealKeypoints[11], idealKeypoints[23]);
 
     const scores = {
         'Whole Body': { value: dtwWhole, threshold: thresholds[0] },
-        'Hand': { value: dtwHand, threshold: thresholds[1] },
-        'Shoulder': { value: dtwShoulder, threshold: thresholds[2] }
+        'Hand': { value: dtwLeftWrist, threshold: handTh },
+        'Shoulder': { value: dtwLeftShoulder, threshold: shoulTh }
     };
     drawDtwScores(ctx, scores);
 
@@ -54,16 +75,16 @@ export function checkBendback(ctx, idealKeypoints, normalizedKeypoints, hipPoint
     const idealPix= [ idealNorm[0]* width,  idealNorm[1]* height ];
     const hipPix = [hipNorm[0]*width, hipNorm[1]*height];
     
-    // const Dist = calculateDistance(hipPix, idealNorm);
-    // const DistPix = calculateDistance(hipPix, idealPix);
-    // console.log("Distance between hip and wrist is : ", Dist);
-    // const radius = 0.193798 * DistPix;
-    // ctx.strokeStyle = "#FF0000"; // Red circle
-    // ctx.lineWidth = 2; // Line width of 2 pixels
-    // // Draw the circle
-    // ctx.beginPath();
-    // ctx.arc(idealPix[0], idealPix[1], radius, 0, Math.PI * 2);
-    // ctx.stroke();
+    const Dist = calculateEuclideanDistance(hipPix, idealNorm);
+    const DistPix = calculateEuclideanDistance(hipPix, idealPix);
+    console.log("Distance between hip and wrist is : ", Dist);
+    const radius = thresholds[1] * DistPix;
+    ctx.strokeStyle = "#FF0000"; // Red circle
+    ctx.lineWidth = 2; // Line width of 2 pixels
+    // Draw the circle
+    ctx.beginPath();
+    ctx.arc(idealPix[0], idealPix[1], radius, 0, Math.PI * 2);
+    ctx.stroke();
     // Draw guidance arrow in yellow
     ctx.beginPath();
     ctx.moveTo(userPix[0], userPix[1]);
@@ -92,7 +113,7 @@ export function checkBendback(ctx, idealKeypoints, normalizedKeypoints, hipPoint
     );
     ctx.stroke();
 
-    const success = checkPoseSuccess(idealKeypoints, normalizedKeypoints, thresholds);
+    const success = checkPoseSuccess(idealKeypoints, normalizedKeypoints, [thresholds[0], handTh, shoulTh]);
     return [ctx, success];
 }
 

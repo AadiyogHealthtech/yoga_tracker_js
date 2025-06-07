@@ -345,7 +345,7 @@ export class Controller {
         // Frame and processing properties
         this.frame = null;
         this.results = null;
-        this.workoutComplete = false;
+        
         // Exercise plan properties
         this.exercisePlan = exercisePlan;
         this.currentExerciseIdx = 0;
@@ -355,11 +355,6 @@ export class Controller {
         this.targetReps = exercisePlan[this.currentExercise].reps;
         
         // Yoga data components
-        this.yogaDataMap = {};
-        this.exerciseNames.forEach(name => {
-            const jsonPath = exercisePlan[name].json_path;
-            this.yogaDataMap[name] = new YogaDataExtractor(jsonPath);
-        });
         this.yoga = new YogaDataExtractor(this.jsonPath);
         this.segments = this.yoga.segments();  // Initialize from YogaDataExtractor
         this.currentSegmentIdx = 0;
@@ -396,13 +391,6 @@ export class Controller {
     }
 
     async initialize() {
-        for (const name of this.exerciseNames) {
-            await this.yogaDataMap[name].ensureLoaded();
-        }
-        
-        // Then initialize current exercise
-        this.yoga = this.yogaDataMap[this.currentExercise];
-        this.segments = this.yoga.segments();
         console.log('Initializing YogaDataExtractor');
         await this.yoga.ensureLoaded();
         console.log("Data loaded and exercise initialized");
@@ -518,7 +506,7 @@ export class Controller {
         }
         
         // Reset for new rep
-        this.currentSegmentIdx = this.relaxationSegmentIdx;
+        this.currentSegmentIdx = 0;
         this.startTime = currentTime;
     }
     // controller.js - New method
@@ -562,7 +550,6 @@ export class Controller {
                     'cyan'
                 );
             } else {
-                this.workoutComplete = true;
                 printTextOnFrame(
                     this.frame,
                     'Workout Complete!',
@@ -579,21 +566,12 @@ export class Controller {
         this.currentExercise = this.exerciseNames[this.currentExerciseIdx];
         this.jsonPath = this.exercisePlan[this.currentExercise].json_path;
         this.targetReps = this.exercisePlan[this.currentExercise].reps;
-        
-        // Switch to preloaded exercise data
-        this.yoga = this.yogaDataMap[this.currentExercise];
+        this.yoga = new YogaDataExtractor(this.jsonPath);
         this.segments = this.yoga.segments();
-        
-        // Reset all critical state variables
         this.phaseHandlers = this._initializeHandlers();
-        this.currentSegmentIdx = 0;  // MUST reset to start from beginning
-        this.count = 0;              // Reset rep counter
-        this.startTime = performance.now();
-        this.inRelaxation = false;
-        this.transitionKeypoints = [];
-        this.lastValidPoseTime = performance.now();  // Reset pose timer
-        
-        console.log(`Switched to exercise: ${this.currentExercise}`);
+        console.log(`Phase handlers initialized: ${this.phaseHandlers}`);
+
+        this.count = 0;
     }
     shouldEnterRelaxation(currentTime) {
         const current = this.segments[this.currentSegmentIdx];
@@ -650,19 +628,18 @@ export class Controller {
     }
 
     getRelaxationReturnValues() {
+        /** Return values when in relaxation phase */
         return [
             'relaxation',
             this.currentExercise,
             this.count,
             this.targetReps
         ];
+
     }
     // In controller.js - Modified processExercise()
     processExercise(currentTime) {
         // Handle relaxation phase entry
-        if (this.workoutComplete) {
-            return ['workout_complete', '', 0, 0];
-        }
         if (!this.segments || this.segments.length === 0) {
             console.error('No segments loaded!');
             return ['error', '', 0, 0];
@@ -775,6 +752,7 @@ export class Controller {
             else if (currentSegment.type === 'ending') {
                 // Rep completion logic
                 this.handleRepCompletion(currentTime);
+                this.currentSegmentIdx = this.relaxationSegmentIdx;
             }
         }
 

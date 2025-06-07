@@ -1278,44 +1278,327 @@ function updateDataPreview(activeThresholds) {
 
 
 
-function exportAsJson() {
-  if (segments.length === 0) return;
+/**
+ * Modified exportAsJson() → writes a JSON with the following shape:
+ *
+ * {
+ *   "video_name": "…",
+ *   "frame_rate": 30,
+ *   "segments": [
+ *     [0, 18,    "starting",   [1,1,1],  "right"],
+ *     [36, 210,  "transition", [1,1,1],  "right"],
+ *     [210, 414, "holding",    [1,1,1],  "right"],
+ *     [421, 563, "transition", [1,1,1],  "right"],
+ *     [552, 585, "ending",     [1,1,1],  "right"]
+ *   ],
+ *   "frames": [
+ *     [
+ *       "-0.03141490,-0.27527460,-0.20251260,0.99991584",
+ *       "-0.02736464,-0.29074860,-0.22191689,0.99991381",
+ *       … (total 33 strings for frame 0) …
+ *     ],
+ *     [
+ *       "-0.02815047,-0.27623656,-0.19642682,0.99983174",
+ *       "-0.02351299,-0.29158057,-0.21631546,0.99982196",
+ *       … (total 33 strings for frame 1) …
+ *     ],
+ *     … etc …
+ *   ]
+ * }
+ *
+ * In order to build exactly that shape, do the following:
+ *  1.  Grab “video_name” from the upload input’s file name.
+ *  2.  Choose a constant “frame_rate” (e.g. 30). If you have access to an actual
+ *      frame rate from videoPlayer, you can pull it from there; otherwise you can hard-code 30.
+ *  3.  Turn each segment object into an array of five entries:
+ *      [ start_frame, end_frame, phase_string, [radii1, radii2, radii3], facing_direction ]
+ *      – We assume “start_frame” and “end_frame” here are expressed in frame indices,
+ *        so if you know your video is 30 fps, you can multiply seconds→frames. In the example below
+ *        I’ve simply rounded seconds×30 to the nearest integer.
+ *      – “phase_string” is the same text you already store in `segment.phase`.
+ *      – The array of three thresholds ([1,1,1] in your sample) can come from any three body-part thresholds
+ *        you want to export. (In this snippet I show how you could take, say,
+ *        leftWrist, rightWrist, leftAnkle if those exist in `segment.thresholds`.)
+ *      – “facing_direction” is obtained by calling `detectFacing(frame.landmarks)` on the chosen landmark 
+ *        for that segment. (We pick the segment’s representative frame, e.g. its middle frame.)
+ *  4.  Turn each extracted frame’s 33 landmarks (x,y,z,visibility) into a string `"x,y,z,visibility"`, so that
+ *      “frames” becomes an array of 33-string arrays.
+ *
+ * Paste this function into visualizer.js (in place of your old exportAsJson),
+ * and then hook up its “Download JSON” button exactly as before.
+ */
+function calculateNormal(p1, p2, p3) {
+    const v1 = [p2[0] - p1[0], p2[1] - p1[1], p2[2] - p1[2]];
+    const v2 = [p3[0] - p1[0], p3[1] - p1[1], p3[2] - p1[2]];
 
-  // Prepare the data to save - only segments with their associated frame data
+    const normal = [
+        v1[1] * v2[2] - v1[2] * v2[1],
+        v1[2] * v2[0] - v1[0] * v2[2],
+        v1[0] * v2[1] - v1[1] * v2[0]
+    ];
+
+    const normMagnitude = Math.sqrt(normal.reduce((sum, val) => sum + val * val, 0));
+    const result = normMagnitude !== 0 ? normal.map(val => val / normMagnitude) : [0, 0, 0];
+    console.log('Calculated normal:', result);
+    return result;
+}
+
+function detectFacing(landmarks, xThreshold = 0.5, yThreshold = 0.5, zThreshold = 0.5) {
+    const normalized = normalizeKeypoints(landmarks);
+    const keypoints = normalized[0];
+    if (!keypoints) {
+        console.warn('No keypoints available for facing detection');
+        return 'random';
+    }
+
+
+    const leftShoulder = keypoints[11];
+    const rightShoulder = keypoints[12];
+    const rightHip = keypoints[24];
+
+    console.log('DetectFacing - Input landmarks sample complete:', landmarks);
+    console.log('DetectFacing - Normalized keypoints sample:', keypoints.slice(0, 5));
+    console.log('DetectFacing - Left Shoulder:', leftShoulder);
+    console.log('DetectFacing - Right Shoulder:', rightShoulder);
+    console.log('DetectFacing - Right Hip:', rightHip);
+
+    if (!leftShoulder || !rightShoulder || !rightHip) {
+        console.warn('Missing critical keypoints for facing detection');
+        return 'random';
+    }
+
+    const [nx, ny, nz] = calculateNormal(leftShoulder, rightShoulder, rightHip);
+    const absNx = Math.abs(nx), absNy = Math.abs(ny), absNz = Math.abs(nz);
+    console.log('Normal components - nx:', nx, 'ny:', ny, 'nz:', nz);
+    console.log('Absolute values - absNx:', absNx, 'absNy:', absNy, 'absNz:', absNz);
+
+    const directions = {
+        'x': [nx > 0 ? 'left' : 'right', absNx, xThreshold],
+        'y': [ny > 0 ? 'up' : 'down', absNy, yThreshold],
+        'z': [nz > 0 ? 'back' : 'front', absNz, zThreshold]
+    };
+
+    const [direction, magnitude, threshold] = Object.values(directions)
+        .reduce((max, curr) => curr[1] > max[1] ? curr : max, ['', -1, 0]);
+    console.log("its working");
+    console.log('Facing detection - Direction:', direction, 'Magnitude:', magnitude, 'Threshold:', threshold);
+
+    
+    return magnitude > threshold ? direction : 'random';
+}
+
+// Make sure normalizeKeypoints is in scope:
+function normalizeKeypoints(landmarks) {
+  if (!landmarks || !Array.isArray(landmarks) || landmarks.length < 33) {
+    console.warn('Invalid landmarks data:', landmarks);
+    return null;
+  }
+
+  const keypoints = landmarks.map(lm => {
+    if (typeof lm === 'object' && lm.x !== undefined) {
+      return [lm.x || 0, lm.y || 0, lm.z || 0];
+    }
+    return [lm[0] || 0, lm[1] || 0, lm[2] || 0];
+  });
+
+  const hip = keypoints[24];
+  if (!hip || hip.some(coord => coord === undefined)) {
+    console.warn('Hip keypoint is invalid:', hip);
+    return null;
+  }
+
+  const normalized = keypoints.map(point => [
+    point[0] - hip[0],
+    point[1] - hip[1],
+    point[2] - hip[2]
+  ]);
+
+  // normalized[24] should now be [0,0,0]
+  console.log('Normalized keypoints - Hip (should be [0, 0, 0]):', normalized[24]);
+  console.log('Normalized keypoints sample:', normalized.slice(0, 5));
+  return [normalized, hip];
+}
+
+function calculateEuclideanDistance(landmarks, idx1, idx2, imgWidth, imgHeight) {
+  // Validate indices
+  if (
+    !Array.isArray(landmarks) ||
+    idx1 < 0 || idx1 >= landmarks.length ||
+    idx2 < 0 || idx2 >= landmarks.length
+  ) {
+    console.warn("Invalid landmarks array or indices out of range.");
+    return 0;
+  }
+
+  // Helper to extract normalized x,y from a single landmark entry
+  function getXY(landmark) {
+    if (landmark == null) {
+      return [0, 0];
+    }
+    // If it’s an object with {x,y,z}:
+    if (typeof landmark === "object" && "x" in landmark && "y" in landmark) {
+      return [landmark.x, landmark.y];
+    }
+    // If it’s an array [x,y,z]:
+    if (Array.isArray(landmark) && landmark.length >= 2) {
+      return [landmark[0], landmark[1]];
+    }
+    // Fallback to [0,0]
+    return [0, 0];
+  }
+
+  // Get normalized coordinates
+  const [nx1, ny1] = getXY(landmarks[idx1]);
+  const [nx2, ny2] = getXY(landmarks[idx2]);
+
+  // Convert normalized to pixel space
+  const x1 = nx1 * imgWidth;
+  const y1 = ny1 * imgHeight;
+  const x2 = nx2 * imgWidth;
+  const y2 = ny2 * imgHeight;
+
+  // Compute Euclidean distance in 2D
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  return Math.hypot(dx, dy);
+}
+
+function cleanName(inputStr) {
+  if (typeof inputStr !== "string") {
+    console.warn("cleanName: expected a string, got", inputStr);
+    return "";
+  }
+  const cleaned = inputStr.replace(/\d+/g, "").trim().toLowerCase();
+  return cleaned;
+}
+
+
+function exportAsJson() {
+  if (segments.length === 0 || !videoPlayer) {
+    alert("No segments to export or video not loaded.");
+    return;
+  }
+
+  // 1) video_name: take the file name from the current <video> src
+  const videoUrl = videoPlayer.currentSrc || "";
+  const videoName = videoUrl.split("/").pop() || "unknown.mp4";
+
+  // 2) frame_rate: either get from metadata or hard-code 30
+  const frameRate = 25;
+
+  // 3) Build the new “segments” array exactly as before (unchanged)
+  const phaseRanges = [];
+  document
+    .querySelectorAll("#phaseTimeRanges .phase-row")
+    .forEach((row) => {
+      const label = row.querySelector(".phase-label")?.textContent || "";
+      const phaseName = label.replace(" Phase:", "").trim();
+      const minInput = row.querySelector(".range-input:nth-of-type(1)");
+      const maxInput = row.querySelector(".range-input:nth-of-type(2)");
+      const minSec = parseFloat(minInput.value);
+      const maxSec = parseFloat(maxInput.value);
+      if (!isNaN(minSec) && !isNaN(maxSec) && minSec < maxSec) {
+        phaseRanges.push({ name: phaseName, minSec, maxSec });
+      }
+    });
+
+  const exportSegments = segments.map((seg) => {
+    const pr = phaseRanges.find((p) => p.name === seg.phase);
+    let startFrame, endFrame;
+    if (pr) {
+      startFrame = Math.round(pr.minSec * frameRate);
+      endFrame = Math.round(pr.maxSec * frameRate);
+    } else {
+      startFrame = seg.frameIndex;
+      endFrame = seg.frameIndex;
+    }
+    
+    const frameObj = extractedFrames[seg.frameIndex];
+    // Instead of `canvas.width`/`canvas.height`, use videoPlayer.videoWidth / videoPlayer.videoHeight:
+    const imgW = videoPlayer.videoWidth;
+    const imgH = videoPlayer.videoHeight;
+
+    // Compute two distances in pixels:
+    //   dist1: between rightHip (23) and leftWrist (15)
+    //   dist2: between rightHip (23) and leftShoulder (11)
+    const dist1 = calculateEuclideanDistance(
+      frameObj.landmarks,
+      23,
+      15,
+      imgW,
+      imgH
+    );
+    const dist2 = calculateEuclideanDistance(
+      frameObj.landmarks,
+      23,
+      11,
+      imgW,
+      imgH
+    );
+
+    // Build the radii array. You had: [5, t.leftWrist/dist1, t.leftShoulder/dist2]
+    const t = seg.thresholds || {};
+    const r1 = 5;
+    const r2 = dist1 !== 0 ? (t.leftWrist ?? 1) / dist1 : 1;
+    const r3 = dist2 !== 0 ? (t.leftShoulder ?? 1) / dist2 : 1;
+    const radiiArray = [r1, r2, r3];
+
+    let direction = "random";
+    if (frameObj && Array.isArray(frameObj.landmarks)) {
+      direction = detectFacing(frameObj.landmarks);
+    }
+    const phase_name = cleanName(seg.pahse);
+    return [startFrame, endFrame, phase_name, radiiArray, direction];
+  });
+
+  // 4) Build “frames” as an array of arrays of 33 strings,
+  //    but first normalize each frame’s landmarks via normalizeKeypoints():
+  const exportFrames = extractedFrames.map((frame) => {
+    // frame.landmarks is an array of 33 objects { x, y, z, visibility }
+    const result = normalizeKeypoints(frame.landmarks);
+    if (!result) {
+      // If normalization fails, fall back to raw values (though typically you won't hit this).
+      return frame.landmarks.map((lm) => `${lm.x},${lm.y},${lm.z},${lm.visibility}`);
+    }
+
+    const [normalizedCoords, raw_hip] = result;
+    // normalizedCoords is an array of 33 points: [[nx,ny,nz], …]
+    return normalizedCoords.map((pt, idx) => {
+      const visibility = frame.landmarks[idx].visibility;
+      const [nx, ny, nz] = pt;
+      return `${nx},${ny},${nz},${visibility}`;
+    });
+  });
+
+  // Final JSON structure:
   const dataToSave = {
-    timestamp: new Date().toISOString(),
-    videoDuration: videoDuration,
-    segments: segments.map((segment) => {
-      const frame = extractedFrames[segment.frameIndex];
-      return {
-        id: segment.id,
-        phase: segment.phase,
-        feedback: segment.feedback,
-        time: frame.time,
-        thresholds: segment.thresholds || {},
-        frameData: {
-          // imageData: frame.imageData,
-          landmarks: frame.landmarks,
-          width: frame.width,
-          height: frame.height,
-        },
-      };
-    }),
+    video_name: videoName,
+    frame_rate: frameRate,
+    segments: exportSegments,
+    frames: exportFrames,
   };
 
+  // ===== download the JSON exactly as before ====
   const blob = new Blob([JSON.stringify(dataToSave, null, 2)], {
     type: "application/json",
   });
   const url = URL.createObjectURL(blob);
-
   const a = document.createElement("a");
   a.href = url;
-  a.download = `pose-segments-${new Date().toISOString()}.json`;
+  a.download = `pose‐segments‐${new Date().toISOString()}.json`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+
+  // Optional: show a “Saved!” message:
+  const statusMessage = document.getElementById("statusMessage");
+  if (statusMessage) {
+    statusMessage.textContent = "JSON exported with normalized landmarks!";
+    statusMessage.className = "status-message status-success";
+  }
 }
+
 
 // Export as images
 function exportAsImages() {
@@ -1570,5 +1853,4 @@ function drawAnalysisCircles(ctx, width, height, landmarks) {
     }
   });
 }
-
 
