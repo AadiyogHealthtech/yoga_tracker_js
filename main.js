@@ -45,8 +45,8 @@ pose.setOptions({
 pose.onResults(onResults);
 
 const exercisePlan = {
-    "Trikonasana": {
-        "json_path": "assets/Trikonasana_ideal_video_keypoints_main.json",
+    "Anuvittasana": {
+        "json_path": "assets/Avuvittasana_female_video_keypoints.json",
         "reps": 3
     },
     "Anuvittasana": {
@@ -142,10 +142,10 @@ setupCamera().catch(error => console.error('Setup camera failed:', error));
 
 // const exercisePlan = {
 //   Anuvittasana: {
-//     json_path: 'assets/Trikonasana_ideal_video_keypoints_main.json',  
+//     json_path: 'assets/Avuvittasana_female_video_keypoints.json',  
 //     reps:      3
 //   },
-//   Anuvittasana_2: {
+//   Anuvittasana: {   
 //     json_path: 'assets/Avuvittasana_female_video_keypoints.json',  
 //     reps:      2
 //   }
