@@ -21,12 +21,8 @@ pose.setOptions({
 pose.onResults(onResults);
 
 const exercisePlan = {
-    "Tadasana": {
-        "json_path": "assets/tadasana.json",
-        "reps": 3
-    },
     "Anuvittasana": {
-        "json_path": "assets/Avuvittasana_female_video_keypoints.json",
+        "json_path": "assets/Tadasana_Ideal_video.json",
         "reps": 3
     }
 };

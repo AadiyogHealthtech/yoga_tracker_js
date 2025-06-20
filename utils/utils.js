@@ -143,7 +143,7 @@ export function detectFacing(landmarks, xThreshold = 0.5, yThreshold = 0.5, zThr
 
     const directions = {
         'x': [nx > 0 ? 'left' : 'right', absNx, xThreshold],
-        'y': [ny > 0 ? 'down' : 'up', absNy, yThreshold],
+        'y': [ny > 0 ? 'up' : 'down', absNy, yThreshold],
         'z': [nz > 0 ? 'back' : 'front', absNz, zThreshold]
     };
 
