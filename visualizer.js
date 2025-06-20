@@ -1501,13 +1501,14 @@ function exportAsJson() {
         phaseRanges.push({ name: phaseName, minSec, maxSec });
       }
     });
-
+  let lastframe = 0;
   const exportSegments = segments.map((seg) => {
     const pr = phaseRanges.find((p) => p.name === seg.phase);
     let startFrame, endFrame;
     if (pr) {
-      startFrame = Math.round(pr.minSec * frameRate);
-      endFrame = Math.round(pr.maxSec * frameRate);
+      startFrame = lastframe+1;
+      endFrame = lastframe + Math.round((pr.maxSec-pr.minSec) * frameRate);
+      lastframe = endFrame;
     } else {
       startFrame = seg.frameIndex;
       endFrame = seg.frameIndex;

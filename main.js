@@ -1,34 +1,10 @@
-/**
- * main.js
- * 
- * Entry point for the Yoga Tracker. 
- * - Initializes MediaPipe Pose.
- * - Loads exercise plan and Controller.
- * - Hooks into MediaPipe’s onResults to update and draw pose-based exercise logic.
- * - Starts an animation loop to feed video frames into MediaPipe.
- */
-
+// // main.js
 import { Controller } from './controller/controller.js';
 import { printTextOnFrame } from './utils/camera_utils.js';
-
 console.log('Starting main.js');
-
-// Grab references to the <video> and <canvas> elements
 const videoElement = document.getElementById('videoElement');
 const canvasElement = document.getElementById('outputCanvas');
 const canvasCtx = canvasElement.getContext('2d');
-
-
-/**
- * initializePose()
- *
- * Creates and configures the MediaPipe Pose instance.
- * - locateFile: points to the CDN for all Pose assets.
- * - modelComplexity, minDetectionConfidence, minTrackingConfidence: set inference parameters.
- *
- * Returns a configured Pose object ready to accept frames.
- */
-
 
 console.log('Initializing MediaPipe Pose');
 const pose = new Pose({
@@ -45,13 +21,13 @@ pose.setOptions({
 pose.onResults(onResults);
 
 const exercisePlan = {
-    "Anuvittasana": {
-        "json_path": "assets/Avuvittasana_female_video_keypoints.json",
+    "Tadasana": {
+        "json_path": "assets/tadasana.json",
         "reps": 3
     },
     "Anuvittasana": {
         "json_path": "assets/Avuvittasana_female_video_keypoints.json",
-        "reps": 2
+        "reps": 3
     }
 };
 
@@ -121,59 +97,24 @@ async function processFrame(timestamp) {
 console.log('Setting up camera');
 setupCamera().catch(error => console.error('Setup camera failed:', error));
 
+// main.js
 
-/**
- * exercisePlan
- *
- * Defines a series of “stages” for Anuvittasana. Each key must be unique
- * so the Controller can step through them sequentially.
- *
- * Format:
- *   {
- *     <stageName>: {
- *       json_path: '<path to normalized-keypoints JSON>',
- *       reps: <number of repetitions>
- *     },
- *     …
- *   }
- */
-
-
-
+// 2) Your exercise plan + controller
 // const exercisePlan = {
 //   Anuvittasana: {
-//     json_path: 'assets/Avuvittasana_female_video_keypoints.json',  
+//     json_path: 'assets/Trikonasana_ideal_video_keypoints.json',  // your normalized‑keypoints JSON
 //     reps:      3
-//   },
-//   Anuvittasana: {   
-//     json_path: 'assets/Avuvittasana_female_video_keypoints.json',  
-//     reps:      2
 //   }
 // };
 // const controller = new Controller(exercisePlan);
-
-// /**
-//  * onResults(results)
-//  *
-//  * Callback invoked by MediaPipe whenever pose landmarks are available for the current frame.
-//  * - Updates the Controller with the latest landmarks.
-//  * - Clears and redraws the video frame on the canvas.
-//  * - Invokes Controller.processExercise() to get current phase, name, rep counts.
-//  * - Overlays the appropriate text: either “Workout Complete!” or “Exercise: …”.
-//  *
-//  * @param {Object} results
-//  *   MediaPipe Pose results containing poseLandmarks, etc.
-//  */
-
+// // 3) onResults now does **all** drawing + exercise logic
 // pose.onResults(results => {
-  
-//   // Update the controller’s internal pose data
+//   // 3a) Update your controller with the latest pose
 //   controller.updateFrame(results);
 //   console.log('lastValidPoseTime:', controller.lastValidPoseTime);
 //   console.log('landmarks:',          controller.landmarks);
 //   console.log('hipPoint:',           controller.hipPoint);
-  
-//   // Redraw the video frame onto canvas
+//   // 3b) Clear + redraw the video frame
 //   canvasCtx.save();
 //   canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
 //   canvasCtx.drawImage(videoElement,
@@ -181,78 +122,55 @@ setupCamera().catch(error => console.error('Setup camera failed:', error));
 //                       canvasElement.width,
 //                       canvasElement.height);
 
-//   // Run exercise state machine for this timestamp
+//   // 3c) Run your exercise logic
+//   //    (we use performance.now()/1000 as “currentTime” in seconds)
 //   const currentTime = performance.now() / 1000;
 //   const [phase, name, doneReps, totalReps] =
 //     controller.processExercise(currentTime);
 
-    
-//   // Overlay text based on current phase
-//  if (phase === 'workout_complete') {
-//       printTextOnFrame(
-//           canvasCtx,
-//           'Workout Complete!',
-//           { x: 10, y: 30 },
-//           'gold'
-//       );
-//   } else if (doneReps >= 0) {
-//       printTextOnFrame(
-//           canvasCtx,
-//           `Exercise: ${name} | Reps: ${doneReps}/${totalReps}`,
-//           { x: 10, y: 30 },
-//           'green'
-//       );
+//   // 3d) Overlay your reps text
+//   if (doneReps >= 0) {
+//     printTextOnFrame(
+//       canvasCtx,
+//       `Exercise: ${name} | Reps: ${doneReps}/${totalReps}`,
+//       { x: 10, y: 30 },
+//       'green'
+//     );
 //   }
-
 
 //   canvasCtx.restore();
 // });
 
-
-// /**
-//  * onFrame()
-//  *
-//  * Feeds the current <video> frame into MediaPipe Pose and schedules the next frame.
-//  * This creates a continuous loop that processes each video frame for pose detection.
-//  */
+// // 4) A simple `onFrame()` loop to push each frame into MediaPipe
 // async function onFrame() {
 //   await pose.send({ image: videoElement });
 //   requestAnimationFrame(onFrame);
 // }
 
-// /**
-//  * bootStrap()
-//  *
-//  * Main entry to set up video playback and kick off the processing loop:
-//  * - Waits for video metadata (dimensions) to load.
-//  * - Mutes and autoplay (to satisfy browser autoplay policies).
-//  * - Sizes the <canvas> to match videoWidth/videoHeight.
-//  * - Assigns the 2D context to controller.frame so drawing utilities can use it.
-//  * - Calls controller.initialize() to load JSON and build phase handlers.
-//  * - Starts the exercise sequence and begins the animation loop.
-//  *
-//  * Any error at any step will log to console and alert the user.
-//  */
-
+// // 5) Bootstrapping all together
 // (async () => {
 //   try {
+//     // Wait for video metadata
 //     await new Promise(resolve => {
 //       videoElement.onloadedmetadata = resolve;
 //       videoElement.load();
 //     });
 
+//     // Mute+autoplay to satisfy browser policies
 //     videoElement.muted     = true;
 //     videoElement.autoplay  = true;
 //     videoElement.loop      = true;
 //     videoElement.playsInline = true;
 //     await videoElement.play();
 
+//     // Match canvas to video size
 //     canvasElement.width  = videoElement.videoWidth;
 //     canvasElement.height = videoElement.videoHeight;
 
 //     controller.frame = canvasCtx;
 
 
+//     // Initialize your controller
 //     await controller.initialize();
 //     if (!controller.segments.length) {
 //       throw new Error('No exercise segments loaded; check your JSON path!');
@@ -261,6 +179,7 @@ setupCamera().catch(error => console.error('Setup camera failed:', error));
     
 //     console.log(`here we go: ${controller.landmarks}`);
 
+//     // Start the MediaPipe→draw loop
 //     requestAnimationFrame(onFrame);
 
 //   } catch (err) {
