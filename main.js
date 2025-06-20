@@ -21,8 +21,8 @@ pose.setOptions({
 pose.onResults(onResults);
 
 const exercisePlan = {
-    "Anuvittasana": {
-        "json_path": "assets/Tadasana_Ideal_video.json",
+    "Vrikshasana": {
+        "json_path": "assets/Vrikshasana_ideal_video.json",
         "reps": 3
     }
 };
