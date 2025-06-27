@@ -10,13 +10,13 @@ body {
 }
 
 header {
-    background-color: #4a6fa5;
+    background-color: #ffbe0b;
     color: white;
     padding: 1rem;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 nav {
-    background-color: #282c34;
+    background-color: #ff9900;
     color: white;
     display: flex;
     justify-content: space-between;
@@ -113,7 +113,7 @@ video {
 }
 
 footer {
-    background-color: #4a6fa5;
+    background-color: #ff9900;
     color: white;
     text-align: center;
     padding: 1rem;

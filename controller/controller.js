@@ -1,328 +1,3 @@
-
-// controller/controller.js
-// console.log('Loading controller.js');
-// import { StartPhase, TransitionPhase, HoldingPhase, EndingPhase, RelaxationPhase } from './phase_handlers.js';
-
-// import { normalizeKeypoints, detectFacing, checkKeypointVisibility, calculateDtwScore } from '../utils/utils.js';
-// import { drawPoseSkeleton, printTextOnFrame, drawDtwScores, drawTransitionPath, drawGuidanceArrow } from '../utils/camera_utils.js';
-// import { YogaDataExtractor } from './yoga.js';
-// import { TransitionAnalyzer, integrateWithController } from './transition_analysis.js';
-// // import RepLogger from '../utils/rep_logger.js'
-// console.log('All controller dependencies imported');
-
-// export class Controller {
-//     constructor(exercisePlan) {
-//         console.log('Constructing Controller with exercise plan:', exercisePlan);
-//         this.lastValidPoseTime = performance.now();  // Milliseconds
-//         this.inRelaxation = false;
-//         this.relaxationEnteredTime = 0;
-//         this.relaxationThreshold = 5;  // Seconds (converted to ms in checks)
-
-//         // Frame and processing properties
-//         this.frame = null;
-//         this.results = null;
-        
-//         // Exercise plan properties
-//         this.exercisePlan = exercisePlan;
-//         this.currentExerciseIdx = 0;
-//         this.exerciseNames = Object.keys(exercisePlan);
-//         this.currentExercise = this.exerciseNames[this.currentExerciseIdx];
-//         this.jsonPath = exercisePlan[this.currentExercise].json_path;
-//         this.targetReps = exercisePlan[this.currentExercise].reps;
-        
-//         // Yoga data components
-//         this.yoga = new YogaDataExtractor(this.jsonPath);
-//         this.segments = this.yoga.segments();  // Initialize from YogaDataExtractor
-//         this.currentSegmentIdx = 0;
-        
-//         // Phase handling
-//         this.phaseHandlers = this._initializeHandlers();  // Initialize properly
-        
-//         // Rep tracking
-//         this.count = 0;
-//         this.startTime = performance.now();  // Milliseconds
-//         this.currentRepStartTime = null;
-        
-//         // Pose data
-//         this.landmarks = null;
-//         this.normalized = null;
-//         this.normalizedKeypoints = null;
-//         this.hipPoint = 0;
-//         this.transitionKeypoints = [];
-
-
-//         this.lastValidHoldTime = 0;
-//         this.phaseTimeouts = {
-//             transition: 10000,  // 10 seconds
-//             holdingAbandonment: 5000,  // 5 seconds
-//             holdingDuration: 5000  
-//         };
-//         this.lostPoseWarned = false;
-//         this.currentExpertKeypoints = null;
-//         // Analysis tools
-//         this.lastHoldingIdx = -1;
-//         // this.replogger = new RepLogger();
-//         // this.current_rep_start_time = null;
-//         this.transitionAnalyzer = new TransitionAnalyzer(this.jsonPath, this.currentExercise);
-//     }
-
-//     async initialize() {
-//         console.log('Initializing YogaDataExtractor');
-//         await this.yoga.ensureLoaded();
-//         console.log("Data loaded and exercise initialized");
-//         this.segments = this.yoga.segments();
-//         console.log('Segments initialized:', this.segments);
-//         if (this.segments.length === 0) {
-//             console.error('No segments available, exercise cannot start');
-//             return;
-//         }
-//         this.phaseHandlers = this._initializeHandlers();
-//         console.log('Phase handlers initialized:', Object.keys(this.phaseHandlers));
-//         integrateWithController(this, this.transitionAnalyzer);
-//         console.log('Transition analyzer integrated');
-//     }
-
-//     _initializeHandlers() {
-//         const handlers = {};
-//         this.segments.forEach((segment, i) => {
-//             const phase = segment.phase;
-//             const phaseType = segment.type;
-//             const uniqueKey = `${phase}_${i}`;
-//             const startFacing = segment.facing; // Directly use segment's facing
-
-//             if (phaseType === 'starting') {
-//                 handlers[uniqueKey] = new StartPhase(this, startFacing);
-//             } else if (phaseType === 'transition') {
-//                 handlers[uniqueKey] = new TransitionPhase(this, startFacing); // Pass facing
-//             } else if (phaseType === 'holding') {
-//                 handlers[uniqueKey] = new HoldingPhase(this, segment.thresholds, startFacing); // Add facing
-//             } else if (phaseType === 'ending') {
-//                 handlers[uniqueKey] = new EndingPhase(this, startFacing);
-//             }else if (phaseType === 'relaxation') {
-//                 handlers[uniqueKey] = new RelaxationPhase(this, startFacing);
-//             }
-
-//             segment.handlerKey = uniqueKey;
-//         });
-//         return handlers;
-//     }
-
-//     startExerciseSequence() {
-//         console.log(`Starting exercise sequence for ${this.currentExercise}`);
-//     }
-//     update_phase_handlers_frame(){
-//         for (const handlerKey of Object.keys(this.phaseHandlers)) {
-//             this.phaseHandlers[handlerKey].normalizedKeypoints = this.normalizedKeypoints;
-//             this.phaseHandlers[handlerKey].hipPoint = this.hipPoint;
-//         }
-//     }
-//     updateFrame(results) {
-//         console.log('Updating frame with results:', results);
-//         this.results = results;
-//         if (!results || !results.poseLandmarks) {
-//             console.warn('No pose landmarks detected');
-//             this.landmarks = null;
-//             this.normalizedKeypoints = null;
-//             return; // Don't update lastValidPoseTime here!
-//         }
-
-//         // Only update time when valid pose detected
-//         this.landmarks = results.poseLandmarks;
-//         const [allVisible, missing] = checkKeypointVisibility(this.landmarks);
-//         if (allVisible) {
-//             console.log("Works till here");
-            
-//             this.update_phase_handlers_frame();
-//             [this.normalizedKeypoints, this.hipPoint] = normalizeKeypoints(this.landmarks);
-//             console.log('Normalized keypoints:', this.normalizedKeypoints);
-//         } else {
-//             this.normalizedKeypoints = null;
-//             console.log(`Missing keypoints: ${missing.join(', ')}`);
-//         }
-//     }
-//     shouldEnterRelaxation(currentTime) {
-//         // Check for no valid pose
-
-//         const currentSegment = this.segments[this.currentSegmentIdx];
-//         if (['starting', 'ending'].includes(currentSegment?.type)) {
-//             const targetFacing = currentSegment.facing || 'front';
-            
-//             console.log(`target facing is ${targetFacing}`);
-//             const face = detectFacing(this.normalizedKeypoints);
-//             console.log(`detected facing is ${face}`);
-//             return face !== targetFacing;
-//         }
-
-//         if (!this.normalizedKeypoints) {
-//             const elapsed = currentTime - this.lastValidPoseTime;
-//             return elapsed > this.relaxationThreshold * 1000;
-//         }
-//         // Check transition timeout
-//         if (currentSegment?.type === 'transition') {
-//             const transitionTimeout = 10000; // 10 seconds
-//             return (currentTime - this.startTime) > transitionTimeout;
-//         }
-
-//         return false;
-//     }
-    
-//     handleRelaxationPhase(currentTime) {
-//         /** Process relaxation phase */
-//         console.log('We are here ')
-        
-//         if (!this.inRelaxation) {
-//             this.inRelaxation = true;
-//             this.relaxationEnteredTime = currentTime;
-//             console.log("Entering relaxation phase");
-//         }
-
-//         const handler = new RelaxationPhase(this);
-//         const { phase, completed } = handler.process(currentTime);
-
-//         // Check exit conditions
-//         if (completed || (currentTime - this.relaxationEnteredTime) > 30000) {
-//             this.inRelaxation = false;
-//             this.lastValidPoseTime = currentTime;
-//             console.log("Exiting relaxation phase");
-//         }
-//     }
-
-//     getRelaxationReturnValues() {
-//         /** Return values when in relaxation phase */
-//         return [
-//             'relaxation',
-//             this.currentExercise,
-//             this.count,
-//             this.targetReps
-//         ];
-
-//     }
-//     processExercise(currentTime) {
-//         // Early exits: need valid frame & results
-//         if (!this.frame || !(this.frame instanceof CanvasRenderingContext2D) || !this.results) {
-//             const seg = this.segments[this.currentSegmentIdx] || {};
-//             return [
-//                 seg.phase || 'waiting',
-//                 this.currentExercise,
-//                 this.count,
-//                 this.targetReps
-//             ];
-//         }
-
-//         // Ensure segments loaded
-//         if (!this.segments || this.segments.length === 0) {
-//             console.warn('Segments are not initialized');
-//             return ['waiting', this.currentExercise, this.count, this.targetReps];
-//         }
-
-//         // Fetch current segment
-//         const currentSegment = this.segments[this.currentSegmentIdx];
-//         if (!currentSegment) {
-//             // No segment → relaxation
-//             this.handleRelaxationPhase(currentTime);
-//             return this.getRelaxationReturnValues();
-//         }
-
-//         // Check if we should relax before processing
-//         if (this.shouldEnterRelaxation(currentTime)) {
-//             this.handleRelaxationPhase(currentTime);
-//             return this.getRelaxationReturnValues();
-//         }
-
-//         // Process current phase
-//         const handler = this.phaseHandlers[currentSegment.handlerKey];
-//         const [phase, completed] = handler.process(currentTime);
-//         console.log(`Processing segment: ${currentSegment.phase}, Completed: ${completed}`);
-
-//         // Update normalized keypoints
-//         if (this.landmarks) {
-//             const [norm, hip] = normalizeKeypoints(this.landmarks);
-//             this.normalizedKeypoints = norm;
-//             this.hipPoint = hip;
-//             console.log('Normalized keypoints:', norm);
-//         }
-
-//         // Draw path for transitions
-//         if (currentSegment.type === 'transition' && this.normalizedKeypoints) {
-//             this.transitionKeypoints.push(this.normalizedKeypoints);
-//             drawTransitionPath(
-//                 this.frame,
-//                 this.transitionAnalyzer.getTransitionEndTarget(this.currentSegmentIdx),
-//                 this.normalizedKeypoints,
-//                 0.1
-//             );
-//         }
-
-//         // Draw skeleton for non-transitions
-//         if (this.landmarks && currentSegment.type !== 'transition') {
-//             drawPoseSkeleton(this.frame, this.landmarks);
-//         }
-
-//         // Holding phase DTW scoring
-//         if (currentSegment.type === 'holding' && this.normalizedKeypoints) {
-//             const idealKeypoints = this.getIdealKeypoints(currentSegment.phase);
-//             if (idealKeypoints.length) {
-//                 const dtwResult = calculateDtwScore(idealKeypoints, this.normalizedKeypoints);
-//                 if (dtwResult && typeof dtwResult.dtwDistance === 'number') {
-//                     drawDtwScores(this.frame, {
-//                         [currentSegment.phase]: {
-//                             value: dtwResult.dtwDistance,
-//                             threshold: currentSegment.thresholds[0]
-//                         }
-//                     });
-//                     const userWrist = this.normalizedKeypoints[15];
-//                     const idealWrist = idealKeypoints[15];
-//                     drawGuidanceArrow(
-//                         this.frame,
-//                         userWrist,
-//                         idealWrist,
-//                         this.frame.canvas.width,
-//                         this.frame.canvas.height,
-//                         dtwResult.dtwDistance < currentSegment.thresholds[0]
-//                     );
-//                 }
-//             }
-//         }
-
-//         // Transition to next segment or rep completion
-//         if (completed) {
-//             if (currentSegment.type === 'holding') {
-//                 this.lastHoldingIdx = this.currentSegmentIdx;
-//                 this.transitionKeypoints = [];
-//             }
-//             if (currentSegment.type === 'ending') {
-//                 this.handleRepCompletion(currentTime);
-//             } else if (this.currentSegmentIdx < this.segments.length - 1) {
-//                 this.currentSegmentIdx++;
-//                 this.startTime = currentTime;
-//             }
-//         }
-
-//         return [phase, this.currentExercise, this.count, this.targetReps];
-//     }
-
-//     getIdealKeypoints(phase) {
-//         const segment = this.segments[this.currentSegmentIdx];
-//         if (segment.phase === phase) {
-//             const middle = Math.floor((segment.start + segment.end) / 2);
-//             return this.yoga.getIdealKeypoints(middle, middle + 1)[0] || [];
-//         }
-//         return [];
-//     }
-
-//     getTransitionKeypoints(startIdx, endIdx) {
-//         for (let i = startIdx; i < endIdx; i++) {
-//             if (this.segments[i].type === 'transition') {
-//                 return this.yoga.getIdealKeypoints(this.segments[i].start, this.segments[i].end);
-//             }
-//         }
-//         return [];
-//     }
-// }
-
-
-
-// controller/controller.js
 console.log('Loading controller.js');
 import { StartPhase, TransitionPhase, HoldingPhase, EndingPhase, RelaxationPhase } from './phase_handlers.js';
 
@@ -330,19 +5,17 @@ import { normalizeKeypoints, detectFacing, checkKeypointVisibility, calculateDtw
 import { drawPoseSkeleton, printTextOnFrame, drawDtwScores, drawTransitionPath, drawGuidanceArrow } from '../utils/camera_utils.js';
 import { YogaDataExtractor } from './yoga.js';
 import { TransitionAnalyzer, integrateWithController } from './transition_analysis.js';
-// import RepLogger from '../utils/rep_logger.js';
 console.log('All controller dependencies imported');
 
 export class Controller {
     constructor(exercisePlan) {
         console.log('Constructing Controller with exercise plan:', exercisePlan);
-        this.lastValidPoseTime = performance.now();  // Milliseconds
+        this.lastValidPoseTime = performance.now(); 
         this.inRelaxation = false;
         this.relaxationEnteredTime = 0;
-        this.relaxationThreshold = 5;  // Seconds (converted to ms in checks)
+        this.relaxationThreshold = 5;  
         this.relaxationSegmentIdx = 0;
 
-        // Frame and processing properties
         this.frame = null;
         this.results = null;
         
@@ -354,20 +27,15 @@ export class Controller {
         this.jsonPath = exercisePlan[this.currentExercise].json_path;
         this.targetReps = exercisePlan[this.currentExercise].reps;
         
-        // Yoga data components
         this.yoga = new YogaDataExtractor(this.jsonPath);
-        this.segments = this.yoga.segments();  // Initialize from YogaDataExtractor
+        this.segments = this.yoga.segments();  
         this.currentSegmentIdx = 0;
         
-        // Phase handling
-        this.phaseHandlers = this._initializeHandlers();  // Initialize properly
-        
-        // Rep tracking
+        this.phaseHandlers = this._initializeHandlers();
         this.count = 0;
-        this.startTime = performance.now();  // Milliseconds
+        this.startTime = performance.now();  
         this.currentRepStartTime = null;
         
-        // Pose data
         this.landmarks = null;
         this.normalized = null;
         this.normalizedKeypoints = null;
@@ -377,16 +45,13 @@ export class Controller {
 
         this.lastValidHoldTime = 0;
         this.phaseTimeouts = {
-            transition: 10000,  // 10 seconds
-            holdingAbandonment: 5000,  // 5 seconds
+            transition: 10000,  
+            holdingAbandonment: 5000,  
             holdingDuration: 5000  
         };
         this.lostPoseWarned = false;
         this.currentExpertKeypoints = null;
-        // Analysis tools
         this.lastHoldingIdx = -1;
-        // this.replogger = new RepLogger();
-        // this.current_rep_start_time = null;
         this.transitionAnalyzer = new TransitionAnalyzer(this.jsonPath, this.currentExercise);
     }
 
@@ -441,16 +106,13 @@ export class Controller {
         }
     }
 
-    updateFrame(results) {
-        // Always stash the raw results
+    updateFrame(results){
         this.results = results;
 
-        // 1) No detections at all → nothing to do this frame
         if (!results) {
             return;
         }
 
-        // 2) Landmarks missing or empty → warn once, clear state, then bail this frame
         if (!results.poseLandmarks || results.poseLandmarks.length === 0) {
             if (!this.lostPoseWarned) {
                 console.warn('No pose landmarks detected (first warning)');
@@ -458,58 +120,32 @@ export class Controller {
             }
             this.landmarks = null;
             this.normalizedKeypoints = null;
-            // Update handlers so they know there are no keypoints
             this.update_phase_handlers_frame();
             return;
         }
 
-        // 3) We’ve just regained detection → clear the warning
         if (this.lostPoseWarned) {
             console.log('Pose landmarks regained');
             this.lostPoseWarned = false;
         }
 
-        // 4) Valid landmarks: normalize, update timers, and propagate to handlers
         this.landmarks = results.poseLandmarks;
         const [allVisible, missing] = checkKeypointVisibility(this.landmarks);
 
         if (allVisible) {
-            // Full-body pose seen → update the “last seen” timer
             this.lastValidPoseTime = performance.now();
 
             // Normalize & store keypoints
             [this.normalizedKeypoints, this.hipPoint] = normalizeKeypoints(this.landmarks);
             this.update_phase_handlers_frame();
         } else {
-            // Partial detection → let handlers decide, but keep lastValidPoseTime
             this.normalizedKeypoints = null;
             console.log(`Missing keypoints: ${missing.join(', ')}`);
         }
 
-        // Always push the new normalizedKeypoints (or null) into your phase handlers
         this.update_phase_handlers_frame();
     }
 
-
-
-    handleRepCompletion(currentTime) {
-        this.count++;
-        
-        // Check if all reps completed
-        if (this.count >= this.targetReps) {
-            // Load next exercise
-            if (this.currentExerciseIdx < this.exerciseNames.length - 1) {
-                this.currentExerciseIdx++;
-                this.resetForNewExercise();
-                console.log(`Starting next exercise: ${this.currentExercise}`);
-            }
-        }
-        
-        // Reset for new rep
-        this.currentSegmentIdx = 0;
-        this.startTime = currentTime;
-    }
-    // controller.js - New method
     checkPhaseTimeouts(currentTime) {
         const currentSegment = this.segments[this.currentSegmentIdx];
         
@@ -525,13 +161,13 @@ export class Controller {
         if (currentSegment.type === 'holding') {
             if (currentTime - this.lastValidHoldTime > this.phaseTimeouts.holdingAbandonment) {
                 console.log('Holding abandonment detected');
-                this.currentSegmentIdx = 0; // Return to relaxation
+                this.currentSegmentIdx = 0; 
             }
         }
     }
     enterRelaxation() {
         this.inRelaxation = true;
-        this.currentSegmentIdx = this.relaxationSegmentIdx; // e.g., index 0
+        this.currentSegmentIdx = this.relaxationSegmentIdx;
         this.startTime = performance.now();
     }
 
@@ -691,19 +327,10 @@ export class Controller {
                             threshold: currentSegment.thresholds[0]
                         }
                     });
-                    // const userWrist = this.normalizedKeypoints[15];
-                    // const idealWrist = idealKeypoints[15];
-                    // drawGuidanceArrow(
-                    //     this.frame,
-                    //     userWrist,
-                    //     idealWrist,
-                    //     this.frame.canvas.width,
-                    //     this.frame.canvas.height,
-                    //     dtwResult.dtwDistance < currentSegment.thresholds[0]
-                    // );
-                    const hipNorm     = this.hipPoint;               // [x,y] in 0…1
-                    const userRel     = this.normalizedKeypoints[15]; // [dx,dy] around hip
-                    const idealRel    = idealKeypoints[15];                     // [dx,dy] around hip
+                    
+                    const hipNorm     = this.hipPoint;              
+                    const userRel     = this.normalizedKeypoints[15]; 
+                    const idealRel    = idealKeypoints[15];                   
                     const canvasW     = this.frame.canvas.width;
                     const canvasH     = this.frame.canvas.height;
                     const isSuccess   = (dtwResult.dtwDistance < currentSegment.thresholds[0]);
