@@ -102,6 +102,7 @@ async function init() {
 	await initializeMediaPipe();
 	setupEventListeners();
 	setupPhaseSelection();
+	updateExportButtonState();
 }
 
 // Initialize MediaPipe Pose
@@ -194,134 +195,6 @@ function setupSegmentPhaseListener() {
 }
 
 // Helper function to refresh frames when phase changes
-function showSegmentFramesForCurrentPhase() {
-	const frameSelection = document.getElementById('frameSelection');
-	frameSelection.innerHTML = '';
-
-	const selectedPhase = document.getElementById('segmentPhase').value;
-
-	// Filter frames by exact phase name match (including numbers)
-	const phaseFrames = extractedFrames.filter((frame) => {
-		return frame.name.startsWith(selectedPhase);
-	});
-
-	if (phaseFrames.length === 0) {
-		frameSelection.innerHTML = `<p>No frames available for "${selectedPhase}" phase</p>`;
-		return;
-	}
-
-	// Display filtered frames
-	phaseFrames.forEach((frame, phaseIndex) => {
-		const frameCard = document.createElement('div');
-		frameCard.className = 'frame-card frame-selector';
-		frameCard.dataset.phaseIndex = phaseIndex;
-		frameCard.dataset.originalIndex = extractedFrames.findIndex(
-			(f) => f.name === frame.name && f.time === frame.time
-		);
-
-		const title = document.createElement('div');
-		title.className = 'frame-title';
-		title.textContent = `${frame.name} (${frame.time.toFixed(2)}s)`;
-
-		const canvasContainer = document.createElement('div');
-		canvasContainer.className = 'frame-canvas-container';
-
-		const canvas = document.createElement('canvas');
-		canvas.className = 'frame-canvas';
-		canvas.width = 200;
-		canvas.height = (200 / frame.width) * frame.height;
-
-		const ctx = canvas.getContext('2d');
-		const img = new Image();
-		img.onload = () => {
-			ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-			drawPoseOnCanvas(frame.landmarks, ctx, canvas.width, canvas.height);
-		};
-		img.src = frame.imageData;
-
-		canvasContainer.appendChild(canvas);
-		frameCard.appendChild(title);
-		frameCard.appendChild(canvasContainer);
-		frameSelection.appendChild(frameCard);
-
-		// Add click handler
-		frameCard.addEventListener('click', () => {
-			document.querySelectorAll('.frame-selector').forEach((el) => {
-				el.classList.remove('selected');
-			});
-			frameCard.classList.add('selected');
-			selectedFrameForSegment = parseInt(frameCard.dataset.originalIndex);
-		});
-	});
-}
-
-// Update the showSegmentForm function to properly filter frames by phase
-function showSegmentForm() {
-	const formContainer = document.getElementById('segmentFormContainer');
-	formContainer.style.display = 'block';
-
-	const frameSelection = document.getElementById('frameSelection');
-	frameSelection.innerHTML = '';
-
-	const selectedPhase = document.getElementById('segmentPhase').value;
-
-	// Filter frames by selected phase (case-insensitive match)
-	const phaseFrames = extractedFrames.filter((frame) => {
-		// Extract phase name from frame name (assuming format "PhaseName FrameNumber")
-		const framePhase = frame.name.split(' ')[0].toLowerCase();
-		return framePhase === selectedPhase.toLowerCase();
-	});
-
-	if (phaseFrames.length === 0) {
-		frameSelection.innerHTML = `<p>No frames available for "${selectedPhase}" phase</p>`;
-		return;
-	}
-
-	// Display filtered frames in the segment form
-	phaseFrames.forEach((frame, phaseIndex) => {
-		const frameCard = document.createElement('div');
-		frameCard.className = 'frame-card frame-selector';
-		frameCard.dataset.phaseIndex = phaseIndex; // Store the index within the phase
-		frameCard.dataset.originalIndex = extractedFrames.findIndex(
-			(f) => f.name === frame.name && f.time === frame.time
-		); // Store the original index in extractedFrames
-
-		const title = document.createElement('div');
-		title.className = 'frame-title';
-		title.textContent = `${frame.name} (${frame.time.toFixed(2)}s)`;
-
-		const canvasContainer = document.createElement('div');
-		canvasContainer.className = 'frame-canvas-container';
-
-		const canvas = document.createElement('canvas');
-		canvas.className = 'frame-canvas';
-		canvas.width = 200;
-		canvas.height = (200 / frame.width) * frame.height;
-
-		const ctx = canvas.getContext('2d');
-		const img = new Image();
-		img.onload = () => {
-			ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-			drawPoseOnCanvas(frame.landmarks, ctx, canvas.width, canvas.height);
-		};
-		img.src = frame.imageData;
-
-		canvasContainer.appendChild(canvas);
-		frameCard.appendChild(title);
-		frameCard.appendChild(canvasContainer);
-		frameSelection.appendChild(frameCard);
-
-		// Add click handler
-		frameCard.addEventListener('click', () => {
-			document.querySelectorAll('.frame-selector').forEach((el) => {
-				el.classList.remove('selected');
-			});
-			frameCard.classList.add('selected');
-			// Use the original index in extractedFrames
-			selectedFrameForSegment = parseInt(frameCard.dataset.originalIndex);
-		});
-	});
-}
 
 function hideSegmentForm() {
 	document.getElementById('segmentFormContainer').style.display = 'none';
@@ -350,18 +223,18 @@ function saveSegment() {
     return;
   }
 
-  // Calculate average frame number for the phase
-  const avgFrameNumber = Math.round(
-    phaseFrames.reduce((sum, frame) => sum + frame.frameNumber, 0) /
-      phaseFrames.length
-  );
+  // Calculate average frame number for the phase based on time
+  const avgTime =
+    phaseFrames.reduce((sum, frame) => sum + frame.time, 0) /
+    phaseFrames.length;
+  const avgFrameNumber = Math.round(avgTime * 28); // Assuming 30 fps
 
   const segment = {
     id: Date.now(),
     phase,
     feedback,
-    frameIndex: selectedFrameForSegment, // Keep reference to selected frame
-    avgFrameNumber: avgFrameNumber, // Store average frame number
+    frameIndex: selectedFrameForSegment,
+    avgFrameNumber: avgFrameNumber,
     thresholds: {},
   };
 
@@ -379,7 +252,35 @@ function saveSegment() {
 
   updateSegmentsList();
   hideSegmentForm();
+  updateExportButtonState();
 }
+
+function updateExportButtonState() {
+  const exportBtn = document.getElementById("exportJson");
+  const tooltip = document.createElement("span");
+  tooltip.className = "tooltiptext";
+  tooltip.textContent = "Add thresholds to all segments to enable export";
+
+  // Wrap export button in tooltip container if not already
+  if (!exportBtn.parentElement.classList.contains("tooltip")) {
+    const wrapper = document.createElement("div");
+    wrapper.className = "tooltip";
+    exportBtn.parentNode.insertBefore(wrapper, exportBtn);
+    wrapper.appendChild(exportBtn);
+    wrapper.appendChild(tooltip);
+  }
+
+  // Check if all segments have at least one threshold
+  const allSegmentsHaveThresholds =
+    segments.length > 0 &&
+    segments.every(
+      (segment) =>
+        segment.thresholds && Object.keys(segment.thresholds).length > 0
+    );
+
+  exportBtn.disabled = !allSegmentsHaveThresholds;
+}
+
 
 function updateSegmentsList() {
   const container = document.getElementById("segmentsList");
@@ -396,15 +297,26 @@ function updateSegmentsList() {
     phase.className = "segment-phase";
     phase.textContent = segment.phase;
 
+    // Add tick mark indicator
+    const tickMark = document.createElement("span");
+    tickMark.className = "tick-mark";
+    tickMark.textContent = "✓";
+    tickMark.id = `tick-${segment.id}`;
+    if (segment.thresholds && Object.keys(segment.thresholds).length > 0) {
+      tickMark.classList.add("visible");
+    }
+
     const deleteBtn = document.createElement("button");
     deleteBtn.className = "btn secondary";
     deleteBtn.textContent = "Delete";
     deleteBtn.onclick = () => {
       segments.splice(index, 1);
       updateSegmentsList();
+      updateExportButtonState();
     };
 
     header.appendChild(phase);
+    header.appendChild(tickMark);
     header.appendChild(deleteBtn);
 
     // Show selected frame info
@@ -415,11 +327,13 @@ function updateSegmentsList() {
     } (${selectedFrame.time.toFixed(2)}s)`;
     frameInfo.className = "frameInfo";
 
-    // Show average frame info
+    // Show average frame info - handle cases where avgFrameNumber might be undefined
     const avgFrameInfo = document.createElement("p");
-    avgFrameInfo.textContent = `Phase Average Frame: ${Math.round(
-      segment.avgFrameNumber
-    )}`;
+    const avgFrame =
+      segment.avgFrameNumber !== undefined
+        ? Math.round(segment.avgFrameNumber)
+        : "Not available";
+    // avgFrameInfo.textContent = `Phase Average Frame: ${avgFrame}`;
     avgFrameInfo.className = "frameInfo";
 
     const feedback = document.createElement("p");
@@ -439,9 +353,8 @@ function updateSegmentsList() {
 
     container.appendChild(segmentCard);
   });
+  updateExportButtonState();
 }
-
-
 
 function analyzeSegment(segment) {
   const frame = extractedFrames[segment.frameIndex];
@@ -537,7 +450,9 @@ function analyzeSegment(segment) {
     });
     updateThresholdControls(segment, controlsDiv);
     redrawAnalysisCanvas(canvas, img, frame, segment);
-    keypointSelect.innerHTML = ""; // Clear dropdown since all are added
+	  keypointSelect.innerHTML = ""; 
+	  updateExportButtonState();
+    updateTickMarkVisibility(segment); // Update tick mark after adding all
   };
 
   const addKeypointBtn = document.createElement("button");
@@ -546,13 +461,13 @@ function analyzeSegment(segment) {
   addKeypointBtn.onclick = () => {
     const selectedPart = keypointSelect.value;
     if (!segment.thresholds[selectedPart]) {
-      // <-- Fixed: using selectedPart instead of part
       segment.thresholds[selectedPart] = 10; // Default value
       updateThresholdControls(segment, controlsDiv);
       redrawAnalysisCanvas(canvas, img, frame, segment);
-
       // Remove from dropdown
       keypointSelect.querySelector(`option[value="${selectedPart}"]`)?.remove();
+	  updateExportButtonState();
+		//   updateTickMarkVisibility(segment); // Update tick mark after adding
     }
   };
 
@@ -567,8 +482,42 @@ function analyzeSegment(segment) {
   controlsDiv.style.marginTop = "20px";
   analysisContainer.appendChild(controlsDiv);
 
-  // Populate controls based on current segment
-  updateThresholdControls(segment, controlsDiv);
+  // Function to update tick mark visibility
+  const updateTickMarkVisibility = () => {
+    const tickMark = document.getElementById(`tick-${segment.id}`);
+    if (tickMark) {
+      const hasThresholds =
+        segment.thresholds && Object.keys(segment.thresholds).length > 0;
+      if (hasThresholds) {
+        tickMark.classList.add("visible");
+      } else {
+        tickMark.classList.remove("visible");
+      }
+      updateExportButtonState();
+    }
+  };
+
+  // Custom callback for updateThresholdControls to include tick mark updates
+  const updateControlsWithTickMark = (segment, container) => {
+    updateThresholdControls(segment, container);
+
+    // Get the master slider after it's created
+    const masterSlider = container.querySelector(".master-slider");
+    if (masterSlider) {
+      masterSlider.addEventListener("input", updateTickMarkVisibility);
+    }
+
+    // Add event listeners to all remove buttons
+    container.querySelectorAll(".remove-threshold").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        // Use setTimeout to ensure the threshold is removed before checking
+        setTimeout(updateTickMarkVisibility, 0);
+      });
+    });
+  };
+
+  // Populate controls with our enhanced version
+  updateControlsWithTickMark(segment, controlsDiv);
 
   // Add close button
   const closeBtn = document.createElement("button");
@@ -578,12 +527,17 @@ function analyzeSegment(segment) {
   closeBtn.onclick = () => {
     analysisContainer.innerHTML = "";
     analysisContainer.style.display = "none";
+    updateTickMarkVisibility(); // Final update when closing
   };
   analysisContainer.appendChild(closeBtn);
+
+  // Initial update of tick mark
+  updateTickMarkVisibility();
 
   // Show the container
   analysisContainer.style.display = "block";
 }
+
 
 function updateThresholdControls(segment, container) {
   container.innerHTML = ""; // Clear existing controls
@@ -686,7 +640,8 @@ function updateThresholdControls(segment, container) {
     removeBtn.onclick = () => {
       delete segment.thresholds[part];
       updateThresholdControls(segment, container);
-
+		updateExportButtonState();
+		
       // Add back to dropdown
       const keypointSelect = document.getElementById(
         `segment-${segment.id}-keypoint-select`
@@ -714,7 +669,7 @@ function updateThresholdControls(segment, container) {
       const newValue = parseFloat(e.target.value);
       value.textContent = newValue;
       segment.thresholds[part] = newValue;
-
+	  updateExportButtonState();
       // Update master slider to show average
       masterSlider.value = getAverageThreshold(segment.thresholds);
       masterValue.textContent = masterSlider.value;
@@ -949,29 +904,135 @@ function updateSegmentThreshold(segment, part, value, enabled) {
 	analyzeSegment(segment);
 }
 
-// Setup event listeners
 function setupEventListeners() {
-	document.getElementById('addSegmentBtn').addEventListener('click', showSegmentForm);
-	document.getElementById('saveSegmentBtn').addEventListener('click', saveSegment);
-	document.getElementById('cancelSegmentBtn').addEventListener('click', hideSegmentForm);
+  document
+    .getElementById("addSegmentBtn")
+    .addEventListener("click", showSegmentForm);
+  document
+    .getElementById("saveSegmentBtn")
+    .addEventListener("click", saveSegment);
+  document
+    .getElementById("cancelSegmentBtn")
+    .addEventListener("click", hideSegmentForm);
 
-	// Video upload
-	document.getElementById('videoUpload').addEventListener('change', handleVideoUpload);
+  // Video upload
+  document
+    .getElementById("videoUpload")
+    .addEventListener("change", handleVideoUpload);
 
-	// Controls
-	document.getElementById('togglePose').addEventListener('click', togglePoseDetection);
-	document.getElementById('extractFrames').addEventListener('click', extractPhaseFrames);
-	document.getElementById('saveFrames').addEventListener('click', saveFrameData);
+  // Controls
+  document
+    .getElementById("togglePose")
+    .addEventListener("click", togglePoseDetection);
+  document
+    .getElementById("extractFrames")
+    .addEventListener("click", extractPhaseFrames);
+  document
+    .getElementById("saveFrames")
+    .addEventListener("click", saveFrameData);
 
-	// Threshold controls
-	setupThresholdControls();
+  // Threshold controls
+  setupThresholdControls();
 
-	// Segment phase dropdown listener
-	setupSegmentPhaseListener();
+  // Segment phase dropdown listener
+  setupSegmentPhaseListener();
 
-	// Export buttons
-	document.getElementById('exportJson').addEventListener('click', exportAsJson);
-	document.getElementById('exportImages').addEventListener('click', exportAsImages);
+  // Add dropdown toggle handler
+  const dropdownToggle = document.querySelector(".dropdown-toggle");
+  if (dropdownToggle) {
+    dropdownToggle.addEventListener("click", function () {
+      const content = document.querySelector(".dropdown-content");
+      const arrow = this.querySelector(".arrow");
+      content.classList.toggle("show");
+      arrow.classList.toggle("rotate");
+    });
+  }
+
+  // Export buttons
+  document.getElementById("exportJson").addEventListener("click", exportAsJson);
+  document
+    .getElementById("exportImages")
+    .addEventListener("click", exportAsImages);
+}
+
+function showSegmentFramesForCurrentPhase() {
+  const frameSelection = document.getElementById("frameSelection");
+  frameSelection.innerHTML = "";
+
+  // Ensure dropdown is open
+  const content = document.querySelector(".dropdown-content");
+  const arrow = document.querySelector(".arrow");
+  content.classList.add("show");
+  arrow.classList.add("rotate");
+
+  const selectedPhase = document.getElementById("segmentPhase").value;
+
+  // Filter frames by exact phase name match (including numbers)
+  const phaseFrames = extractedFrames.filter((frame) => {
+    return frame.name.startsWith(selectedPhase);
+  });
+
+  if (phaseFrames.length === 0) {
+    frameSelection.innerHTML = `<p>No frames available for "${selectedPhase}" phase</p>`;
+    return;
+  }
+
+  // Display filtered frames
+  phaseFrames.forEach((frame, phaseIndex) => {
+    const frameCard = document.createElement("div");
+    frameCard.className = "frame-card frame-selector";
+    frameCard.dataset.phaseIndex = phaseIndex;
+    frameCard.dataset.originalIndex = extractedFrames.findIndex(
+      (f) => f.name === frame.name && f.time === frame.time
+    );
+
+    const title = document.createElement("div");
+    title.className = "frame-title";
+    title.textContent = `${frame.name} (${frame.time.toFixed(2)}s)`;
+
+    const canvasContainer = document.createElement("div");
+    canvasContainer.className = "frame-canvas-container";
+
+    const canvas = document.createElement("canvas");
+    canvas.className = "frame-canvas";
+    canvas.width = 200;
+    canvas.height = (200 / frame.width) * frame.height;
+
+    const ctx = canvas.getContext("2d");
+    const img = new Image();
+    img.onload = () => {
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      drawPoseOnCanvas(frame.landmarks, ctx, canvas.width, canvas.height);
+    };
+    img.src = frame.imageData;
+
+    canvasContainer.appendChild(canvas);
+    frameCard.appendChild(title);
+    frameCard.appendChild(canvasContainer);
+    frameSelection.appendChild(frameCard);
+
+    // Add click handler
+    frameCard.addEventListener("click", () => {
+      document.querySelectorAll(".frame-selector").forEach((el) => {
+        el.classList.remove("selected");
+      });
+      frameCard.classList.add("selected");
+      selectedFrameForSegment = parseInt(frameCard.dataset.originalIndex);
+    });
+  });
+}
+
+function showSegmentForm() {
+  const formContainer = document.getElementById("segmentFormContainer");
+  formContainer.style.display = "block";
+
+  // Initialize dropdown state
+  const content = document.querySelector(".dropdown-content");
+  const arrow = document.querySelector(".arrow");
+  content.classList.remove("show");
+  arrow.classList.remove("rotate");
+
+  showSegmentFramesForCurrentPhase();
 }
 
 // Setup threshold control listeners
@@ -1695,7 +1756,7 @@ function exportAsJson() {
       startFrame = seg.frameIndex;
       endFrame = seg.frameIndex;
     }
-	selectedFrame = selectedFrame + startFrame;
+
     const frameObj = extractedFrames[seg.frameIndex];
     const imgW = videoPlayer.videoWidth;
     const imgH = videoPlayer.videoHeight;
@@ -1759,7 +1820,19 @@ function exportAsJson() {
       direction = detectFacing(frameObj.landmarks);
     }
     const phase_name = cleanName(seg.phase);
-    return [startFrame, endFrame, phase_name, radiiArray, direction];
+
+    // Calculate representativeFrame as startFrame + frame number selected in dropdown
+    const representativeFrame = startFrame + seg.frameIndex +1;
+console.log("lado",startFrame)
+console.log("bete",seg.frameIndex)
+    return [
+      startFrame,
+      endFrame,
+      phase_name,
+      radiiArray,
+      direction,
+      { representativeFrame }, // Add the representativeFrame as an object
+    ];
   });
 
   // 5) Build "frames" with normalized landmarks
@@ -1811,6 +1884,7 @@ function exportAsJson() {
     }, 3000);
   }
 }
+
 
 // Export as images
 function exportAsImages() {
