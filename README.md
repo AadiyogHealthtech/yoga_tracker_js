@@ -42,7 +42,7 @@ cd yoga-tracker
     [2, 3, "ending", [0.5, 0.3, 0.2]]
   ]
 }
-
+```
 ## Start Application
 ``` bash
 # Using Python
