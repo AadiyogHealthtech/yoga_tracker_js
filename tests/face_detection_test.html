@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Enhanced Facing Detection</title>
+  <style>
+    video, canvas { position: absolute; top: 0; left: 0; }
+    #info { 
+      position: absolute; 
+      top: 10px; 
+      left: 10px; 
+      background: rgba(0,0,0,0.7); 
+      color: white; 
+      padding: 15px;
+      font-family: 'Arial', sans-serif;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    }
+  </style>
+</head>
+<body>
+  <video id="webcam" autoplay playsinline width="640" height="480"></video>
+  <canvas id="output" width="640" height="480"></canvas>
+  <div id="info">Initializing pose detection...</div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose"></script>
+
+  <script>
+    const video = document.getElementById('webcam');
+    const canvas = document.getElementById('output');
+    const ctx = canvas.getContext('2d');
+    const info = document.getElementById('info');
+
+    let detector;
+    let lastDirections = [];
+    const SMOOTHING_WINDOW = 5;
+
+    async function setupCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: 'user' }, 
+          audio: false 
+        });
+        video.srcObject = stream;
+        return new Promise(resolve => {
+          video.onloadedmetadata = () => {
+            video.width = video.videoWidth;
+            video.height = video.videoHeight;
+            resolve(video);
+          };
+        });
+      } catch (error) {
+        console.error('Camera access error:', error);
+        info.innerText = 'Camera access denied. Please enable camera permissions.';
+        throw error;
+      }
+    }
+
+    function calculateShoulderHipNormal(landmarks) {
+      const keypoints = landmarks.map(pt => [pt.x, pt.y, pt.z]);
+      
+      const leftShoulder = keypoints[11];
+      const rightShoulder = keypoints[12];
+      const rightHip = keypoints[24];
+      const leftHip = keypoints[23];
+
+      // Calculate two vectors for normal calculation
+      const shoulderVector = [
+        rightShoulder[0] - leftShoulder[0],
+        rightShoulder[1] - leftShoulder[1],
+        rightShoulder[2] - leftShoulder[2]
+      ];
+
+      const hipVector = [
+        leftHip[0] - leftShoulder[0],
+        leftHip[1] - leftShoulder[1],
+        leftHip[2] - leftShoulder[2]
+      ];
+
+      // Cross product
+      return [
+        shoulderVector[1] * hipVector[2] - shoulderVector[2] * hipVector[1],
+        shoulderVector[2] * hipVector[0] - shoulderVector[0] * hipVector[2],
+        shoulderVector[0] * hipVector[1] - shoulderVector[1] * hipVector[0]
+      ];
+    }
+
+    function determineFacingDirection(normal, thresholds) {
+      const absNormal = normal.map(Math.abs);
+      const maxComponent = Math.max(...absNormal);
+      
+      if (maxComponent < 0.2) return 'front'; // Default facing
+
+      const primaryAxis = absNormal.indexOf(maxComponent);
+      const direction = normal[primaryAxis] > 0 ? 
+        ['left', 'up', 'back'][primaryAxis] : 
+        ['right', 'down', 'front'][primaryAxis];
+
+      return maxComponent > thresholds[primaryAxis] ? direction : 'front';
+    }
+
+    function smoothDirection(newDirection) {
+      lastDirections.push(newDirection);
+      if (lastDirections.length > SMOOTHING_WINDOW) lastDirections.shift();
+      
+      const counts = lastDirections.reduce((acc, dir) => {
+        acc[dir] = (acc[dir] || 0) + 1;
+        return acc;
+      }, {});
+
+      return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+    }
+
+    function drawPoseSkeleton(landmarks) {
+      // Draw connections between keypoints
+      const connections = [
+        [11, 12], [12, 14], [14, 16], [11, 13], [13, 15],
+        [23, 24], [23, 25], [24, 26], [11, 23], [12, 24]
+      ];
+
+      ctx.strokeStyle = '#00ff00';
+      ctx.lineWidth = 2;
+
+      connections.forEach(([start, end]) => {
+        const startPt = landmarks[start];
+        const endPt = landmarks[end];
+        if (startPt && endPt) {
+          ctx.beginPath();
+          ctx.moveTo(startPt.x * canvas.width, startPt.y * canvas.height);
+          ctx.lineTo(endPt.x * canvas.width, endPt.y * canvas.height);
+          ctx.stroke();
+        }
+      });
+    }
+
+    async function main() {
+      try {
+        await setupCamera();
+        
+        const detectorConfig = {
+          modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
+          enableSmoothing: true,
+          minPoseDetectionConfidence: 0.5,
+          minTrackingConfidence: 0.5
+        };
+
+        detector = await poseDetection.createDetector(
+          poseDetection.SupportedModels.MoveNet,
+          detectorConfig
+        );
+
+        info.innerText = 'System Ready - Show your full body in frame';
+        requestAnimationFrame(detectPose);
+      } catch (error) {
+        console.error('Initialization error:', error);
+        info.innerText = 'Error initializing pose detection. See console.';
+      }
+    }
+
+    async function detectPose() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      try {
+        const poses = await detector.estimatePoses(video);
+        if (poses.length > 0 && poses[0].keypoints3D) {
+          const landmarks = poses[0].keypoints3D;
+          drawPoseSkeleton(landmarks);
+
+          const normal = calculateShoulderHipNormal(landmarks);
+          const rawDirection = determineFacingDirection(normal, [0.4, 0.3, 0.5]);
+          const direction = smoothDirection(rawDirection);
+
+          // Display results
+          ctx.fillStyle = '#ff4444';
+          ctx.font = '20px Arial';
+          ctx.fillText(`Facing: ${direction.toUpperCase()}`, 20, 40);
+          
+          info.innerText = `Detected Direction: ${direction}`;
+        }
+      } catch (error) {
+        console.error('Detection error:', error);
+        info.innerText = 'Error detecting pose - Try moving into frame';
+      }
+
+      requestAnimationFrame(detectPose);
+    }
+
+    main();
+  </script>
+</body>
+</html>
