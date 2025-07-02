@@ -46,7 +46,7 @@ export function checkPoseSuccess(idealKeypoints, normalizedKeypoints, thresholds
       underThresholdCount++;
     }
   }
-
+  console.log("No of success points:", underThresholdCount);
   // success if at least 8 of the 10 keypoints are "close enough"
   return underThresholdCount >= 8;
 }
@@ -143,11 +143,16 @@ export function checkBendback(ctx, idealKeypoints, normalizedKeypoints, hipPoint
       // 1) get relative normalized coords
       const userRel  = normalizedKeypoints[idx]; // [dx, dy]
       const idealRel = idealKeypoints[idx];      // [dx, dy]
+      console.log("Here are the userRel: ", userRel);
+      console.log("Here are the idealRel: ", idealRel);
+      
 
       // 2) reconstruct absolute normalized coords
+      console.log("Here are the hipNorm: ", hipNorm);
       const userNorm  = [ userRel[0]  + hipNorm[0],  userRel[1]  + hipNorm[1] ];
       const idealNorm = [ idealRel[0] + hipNorm[0],  idealRel[1] + hipNorm[1] ];
-
+      console.log("Here are the userNorm: ", userNorm);
+      console.log("Here are the idealNorm: ", idealNorm);  
       // 3) convert to pixel space
       const userPix  = [ userNorm[0]  * width, userNorm[1]  * height ];
       const idealPix = [ idealNorm[0] * width, idealNorm[1] * height ];

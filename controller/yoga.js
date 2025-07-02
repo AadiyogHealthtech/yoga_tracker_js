@@ -1,9 +1,10 @@
 // controller/yoga.js
-// Loads and parses yoga keypoint & segment data from a JSON file to provide ideal poses and exercise segments.
-
 console.log('Loading yoga.js');
 
 import { detectFacing } from '../utils/utils.js';
+
+
+
 
 /**
  * YogaDataExtractor
@@ -16,14 +17,12 @@ export class YogaDataExtractor {
      */
     constructor(jsonPath) {
         console.log(`Creating YogaDataExtractor for ${jsonPath}`);
-        this.data = null;            // Full JSON payload once loaded
-        this.keypointsData = null;   // Array of per-frame keypoint strings
-        this.segmentsData = null;    // Array of segment definitions [start, end, phase, thresholds]
-        this.jsonPath = jsonPath;    // Path to fetch
-        // Kick off loading immediately
+        this.data = null;
+        this.keypointsData = null;
+        this.segmentsData = null;
+        this.jsonPath = jsonPath;
         this.loadPromise = this.loadData();
     }
-
     /**
      * loadData
      * Asynchronously fetches and parses the JSON file.
@@ -46,13 +45,11 @@ export class YogaDataExtractor {
             console.log('Keypoints data length:', this.keypointsData.length);
         } catch (error) {
             console.error('Error loading JSON:', error);
-            // Fallback to empty data to avoid runtime errors
             this.data = { frames: [], segments: [] };
             this.keypointsData = [];
             this.segmentsData = [];
         }
     }
-
     /**
      * ensureLoaded
      * Waits for the initial loadData() promise to complete,
@@ -68,7 +65,6 @@ export class YogaDataExtractor {
             this.keypointsData = [];
         }
     }
-
     /**
      * segments
      * Converts raw segment definitions into enriched segment objects.
@@ -89,33 +85,32 @@ export class YogaDataExtractor {
             return [];
         }
 
-        const segments = this.segmentsData
-            .map(s => {
-                try {
-                    // Extract the ideal keypoints for the segment frames
-                    const idealKeypoints = this.getIdealKeypoints(s[0], s[1]);
-                    // Determine the midpoint keypoint frame for facing detection
-                    const middleIdx = Math.floor(idealKeypoints.length / 2);
-                    const keypointsFrame = idealKeypoints[middleIdx] || [];
-                    return {
-                        start: s[0],
-                        end: s[1],
-                        phase: s[2],
-                        thresholds: s[3],
-                        facing: detectFacing(keypointsFrame),        // Compute ideal facing
-                        type: s[2].split('_')[0]                     // Derive type from phase name
-                    };
-                } catch (e) {
-                    console.error(`Invalid segment: ${s}`, e);
-                    return null;
-                }
-            })
-            .filter(s => s !== null);
-
+        const segments = this.segmentsData.map(s => {
+            try {
+                // Extract the ideal keypoints for the segment frames
+                const idealKeypoints = this.getIdealKeypoints(s[0], s[1]);
+                const middleIdx = Math.floor(idealKeypoints.length / 2);
+                // Determine the midpoint keypoint frame for facing detection
+                    
+                const keypointsFrame = idealKeypoints[middleIdx] || [];
+                const segment = {
+                    start: s[0],
+                    end: s[1],
+                    phase: s[2],
+                    thresholds: s[3],
+                    facing: detectFacing(keypointsFrame),
+                    type: s[2].split('_')[0]
+                };
+                console.log(`Created segment: ${segment.phase}`);
+                return segment;
+            } catch (e) {
+                console.error(`Invalid segment: ${s}`, e);
+                return null;
+            }
+        }).filter(s => s !== null);
         console.log('Segments generated:', segments);
         return segments;
     }
-
     /**
      * getIdealKeypoints
      * Returns an array of numeric keypoint arrays between two frame indices.
@@ -125,14 +120,14 @@ export class YogaDataExtractor {
      * @param {number} endFrame - Index of the last frame (exclusive)
      * @returns {Array<Array<number>>} List of [x, y, z] coordinate arrays
      */
+
     getIdealKeypoints(startFrame, endFrame) {
         if (!this.keypointsData || !Array.isArray(this.keypointsData)) {
             console.warn('No keypoints data available');
             return [];
         }
-        // Slice the raw data and parse each "x,y,z" string into floats
         const subData = this.keypointsData.slice(startFrame, endFrame);
-        return subData.map(frame =>
+        return subData.map(frame => 
             frame.map(kp => {
                 const [x, y, z] = kp.split(',').slice(0, 3).map(parseFloat);
                 return [x || 0, y || 0, z || 0];

@@ -1762,58 +1762,33 @@ function exportAsJson() {
     const imgH = videoPlayer.videoHeight;
 
     // Calculate distances for all keypoints relative to their respective hips
-    const thresholds = seg.thresholds || {};
-    const radiiArray = [5]; // Base radius
+    const NUM_KEYPOINTS = 33;
+	const leftHipIdx    = BODY_PARTS.leftHip;
+	const thresholds    = seg.thresholds || {};
 
-    // Left side points (normalized to left hip)
-    const leftHipIndex = BODY_PARTS.leftHip;
-    const leftPoints = [
-      { name: "leftShoulder", index: BODY_PARTS.leftShoulder },
-      { name: "leftElbow", index: BODY_PARTS.leftElbow },
-      { name: "leftWrist", index: BODY_PARTS.leftWrist },
-      { name: "leftKnee", index: BODY_PARTS.leftKnee },
-      { name: "leftAnkle", index: BODY_PARTS.leftAnkle },
-    ];
+	// 1. start with a zero‐filled array of length 33
+	const radiiArray = new Array(NUM_KEYPOINTS).fill(0);
 
-    leftPoints.forEach((point) => {
-      if (thresholds[point.name] !== undefined) {
-        const dist = calculateEuclideanDistance(
-          frameObj.landmarks,
-          leftHipIndex,
-          point.index,
-          imgW,
-          imgH
-        );
-        const normalizedValue =
-          dist !== 0 ? (thresholds[point.name] ?? 1) / dist : 1;
-        radiiArray.push(normalizedValue);
-      }
-    });
+	// 2. for each user threshold, look up its keypoint index & compute normalized value
+	for (const [kpName, rawThresh] of Object.entries(thresholds)) {
+	const kpIndex = BODY_PARTS[kpName];
+	if (kpIndex === undefined) continue;           // ignore unknown names
 
-    // Right side points (normalized to right hip)
-    const rightHipIndex = BODY_PARTS.rightHip;
-    const rightPoints = [
-      { name: "rightShoulder", index: BODY_PARTS.rightShoulder },
-      { name: "rightElbow", index: BODY_PARTS.rightElbow },
-      { name: "rightWrist", index: BODY_PARTS.rightWrist },
-      { name: "rightKnee", index: BODY_PARTS.rightKnee },
-      { name: "rightAnkle", index: BODY_PARTS.rightAnkle },
-    ];
+	// compute pixel distance from left hip → this keypoint
+	const dist = calculateEuclideanDistance(
+		frameObj.landmarks,
+		leftHipIdx,
+		kpIndex,
+		imgW,
+		imgH
+	);
 
-    rightPoints.forEach((point) => {
-      if (thresholds[point.name] !== undefined) {
-        const dist = calculateEuclideanDistance(
-          frameObj.landmarks,
-          rightHipIndex,
-          point.index,
-          imgW,
-          imgH
-        );
-        const normalizedValue =
-          dist !== 0 ? (thresholds[point.name] ?? 1) / dist : 1;
-        radiiArray.push(normalizedValue);
-      }
-    });
+	// avoid divide‐by‐zero; put result in the exact slot kpIndex
+	radiiArray[kpIndex] = dist > 0
+		? rawThresh / dist
+		: 0;
+	}
+
 
     let direction = "random";
     if (frameObj && Array.isArray(frameObj.landmarks)) {
@@ -1823,34 +1798,47 @@ function exportAsJson() {
 
     // Calculate representativeFrame as startFrame + frame number selected in dropdown
     const representativeFrame = startFrame + seg.frameIndex +1;
-console.log("lado",startFrame)
-console.log("bete",seg.frameIndex)
-    return [
-      startFrame,
-      endFrame,
-      phase_name,
-      radiiArray,
-      direction,
-      { representativeFrame }, // Add the representativeFrame as an object
-    ];
-  });
+		console.log("lado",startFrame)
+		console.log("bete",seg.frameIndex)
+		return [
+		startFrame,
+		endFrame,
+		phase_name,
+		radiiArray,
+		direction,
+		{ representativeFrame }, // Add the representativeFrame as an object
+		];
+	});
 
   // 5) Build "frames" with normalized landmarks
   const exportFrames = extractedFrames.map((frame) => {
-    const result = normalizeKeypoints(frame.landmarks);
-    if (!result) {
-      return frame.landmarks.map(
-        (lm) => `${lm.x},${lm.y},${lm.z},${lm.visibility}`
-      );
-    }
+	const result = normalizeKeypoints(frame.landmarks);
+	if (!result) {
+		return frame.landmarks.map(lm =>
+		// raw coords → string with 8 decimals
+		[
+			lm.x.toFixed(8),
+			lm.y.toFixed(8),
+			lm.z.toFixed(8),
+			lm.visibility.toFixed(8)
+		].join(',')
+		);
+	}
 
-    const [normalizedCoords, raw_hip] = result;
-    return normalizedCoords.map((pt, idx) => {
-      const visibility = frame.landmarks[idx].visibility;
-      const [nx, ny, nz] = pt;
-      return `${nx},${ny},${nz},${visibility}`;
-    });
-  });
+	const [normalizedCoords] = result;
+	return normalizedCoords.map((pt, idx) => {
+		const vis = frame.landmarks[idx].visibility;
+		const [nx, ny, nz] = pt;
+		// force 8 decimals for x,y,z and visibility
+		return [
+		nx.toFixed(8),
+		ny.toFixed(8),
+		nz.toFixed(8),
+		vis.toFixed(8)
+		].join(',');
+	});
+	});
+
 
   // Final JSON structure:
   const dataToSave = {
