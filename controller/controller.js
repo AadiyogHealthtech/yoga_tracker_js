@@ -97,46 +97,67 @@ export class Controller {
      */
     _initializeHandlers() {
         const handlers = {};
+        // Iterate over each segment definition loaded from the JSON
         this.segments.forEach((segment, i) => {
+            // Extract identifying properties from the segment
             const phase = segment.phase;
             const phaseType = segment.type;
             const uniqueKey = `${phase}_${i}`;
             const startFacing = segment.facing;
-
+            // Choose and instantiate the correct handler class based on segment type
             if (phaseType === 'starting') {
                 handlers[uniqueKey] = new StartPhase(this, startFacing);
             } else if (phaseType === 'transition') {
                 handlers[uniqueKey] = new TransitionPhase(this , startFacing); // Pass facing
             } else if (phaseType === 'holding') {
+                // HoldingPhase receives threshold parameters to determine hold duration
+                
                 handlers[uniqueKey] = new HoldingPhase(this, segment.thresholds, startFacing); // Add facing
             } else if (phaseType === 'ending') {
                 handlers[uniqueKey] = new EndingPhase(this, startFacing);
             }else if (phaseType === 'relaxation') {
+                // RelaxationPhase handles rest periods between reps
                 handlers[uniqueKey] = new RelaxationPhase(this, startFacing);
             }else if (phaseType === 'relaxation') handlers[uniqueKey] = new RelaxationPhase(this); 
-
+            // Attach the handler key back to the segment for lookup during processing
             segment.handlerKey = uniqueKey;
         });
         return handlers;
     }
-
+    /**
+     * Begins the exercise sequence by logging the current exercise name.
+     * Can be extended to reset timers, UI state, or trigger the first phase handler.
+     */
     startExerciseSequence() {
         console.log(`Starting exercise sequence for ${this.currentExercise}`);
     }
+    /**
+     * Pushes the latest normalized keypoints and hip position into every phase handler.
+     * Ensures each handler has the data it needs before processing.
+     */
     update_phase_handlers_frame(){
+        // Iterate over each registered phase handler
         for (const handlerKey of Object.keys(this.phaseHandlers)) {
+            // Provide the handler with the normalized keypoints (x,y coordinates scaled to frame)
             this.phaseHandlers[handlerKey].normalizedKeypoints = this.normalizedKeypoints;
+            // Provide the handler with the hip reference point for orientation or thresholding
             this.phaseHandlers[handlerKey].hipPoint = this.hipPoint;
         }
     }
-
+    /**
+     * Called each time MediaPipe Pose produces new results for the current frame.
+     * Updates internal landmark buffers, handles lost/regained pose warnings,
+     * normalizes keypoints for use by phase handlers, and pushes data to them.
+     *
+     * @param {PoseResults} results - The output from MediaPipe Pose for the current frame.
+     */
     updateFrame(results){
         this.results = results;
-
+        // If there are no results, nothing to process
         if (!results) {
             return;
         }
-
+        // If no landmarks detected, warn once and clear stored keypoints
         if (!results.poseLandmarks || results.poseLandmarks.length === 0) {
             if (!this.lostPoseWarned) {
                 console.warn('No pose landmarks detected (first warning)');
@@ -144,21 +165,24 @@ export class Controller {
             }
             this.landmarks = null;
             this.normalizedKeypoints = null;
+            // Propagate cleared data to handlers
             this.update_phase_handlers_frame();
             return;
         }
-
+        // If we had previously lost the pose and now have it back, log recovery
         if (this.lostPoseWarned) {
             console.log('Pose landmarks regained');
             this.lostPoseWarned = false;
         }
-
+        // Store raw pose landmarks for reference or advanced analysis
         this.landmarks = results.poseLandmarks;
+        // Check visibility of required keypoints (returns [allVisible, missingList])
         const [allVisible, missing] = checkKeypointVisibility(this.landmarks);
 
         if (allVisible) {
+            // Mark the time of the last valid detection
             this.lastValidPoseTime = performance.now();
-
+            // Normalize keypoints to a consistent coordinate space and compute hip reference
             // Normalize & store keypoints
             [this.normalizedKeypoints, this.hipPoint] = normalizeKeypoints(this.landmarks);
             this.update_phase_handlers_frame();
@@ -166,43 +190,68 @@ export class Controller {
             this.normalizedKeypoints = null;
             console.log(`Missing keypoints: ${missing.join(', ')}`);
         }
-
+        // Still update handlers so they know visibility failed
         this.update_phase_handlers_frame();
     }
-
+    /**
+     * checkPhaseTimeouts
+     * Enforces time limits on transition and holding phases to prevent stalling.
+     *
+     * @param {number} currentTime - The current timestamp in milliseconds.
+     */
     checkPhaseTimeouts(currentTime) {
+        // Get the active segment (phase) definition
         const currentSegment = this.segments[this.currentSegmentIdx];
-        
+        // If we're in a transition phase, ensure it doesn't exceed the maximum allowed time
         if (currentSegment.type === 'transition') {
             const elapsed = currentTime - this.startTime;
             if (elapsed > this.phaseTimeouts.transition) {
                 console.log('Transition timeout triggered');
+                // Reset back to the relaxation segment to let user rest and prepare
                 this.currentSegmentIdx = 0; // Return to relaxation
+                // Clear any stored keypoints for transition analysis
                 this.transitionKeypoints = [];
             }
         }
-        
+        // If we're in a holding phase, ensure the user hasn't abandoned the hold
         if (currentSegment.type === 'holding') {
+            // If too much time has passed since the last valid hold detection
             if (currentTime - this.lastValidHoldTime > this.phaseTimeouts.holdingAbandonment) {
                 console.log('Holding abandonment detected');
+                // Return to relaxation segment to allow user to reset
                 this.currentSegmentIdx = 0; 
             }
         }
     }
+    /**
+     * enterRelaxation
+     * Switches the controller into a relaxation (rest) phase.
+     * Resets timing and segment index to the predefined relaxation segment.
+     */
     enterRelaxation() {
         this.inRelaxation = true;
         this.currentSegmentIdx = this.relaxationSegmentIdx;
         this.startTime = performance.now();
     }
 
-    // controller.js - Modified handleRepCompletion()
+    /**
+     * Called when a single repetition (rep) of the current exercise is completed.
+     * Increments rep count, handles transition to next exercise or workout completion,
+     * and then moves into the relaxation (rest) phase.
+     *
+     * @param {number} currentTime - Timestamp in milliseconds when rep completed
+     */
     handleRepCompletion(currentTime) {
+        // Increment the completed rep counter
         this.count++;
-        
+        // If we've reached or exceeded target reps for this exercise...
         if (this.count >= this.targetReps) {
+            // ...and there is another exercise in the plan
             if (this.currentExerciseIdx < this.exerciseNames.length - 1) {
+                // Advance to the next exercise
                 this.currentExerciseIdx++;
                 this.resetForNewExercise();
+                // Inform the user via overlay text
                 printTextOnFrame(
                     this.frame,
                     `Next Exercise: ${this.currentExercise}`,
@@ -210,6 +259,7 @@ export class Controller {
                     'cyan'
                 );
             } else {
+                // No more exercises: workout is complete
                 printTextOnFrame(
                     this.frame,
                     'Workout Complete!',
@@ -218,21 +268,35 @@ export class Controller {
                 );
             }
         }
-        
+        // After finishing (or partially finishing) a rep, enter relaxation/rest
         this.currentSegmentIdx = this.relaxationSegmentIdx;
-        this.startTime = currentTime;
+        this.startTime = currentTime;// Reset phase timer for relaxation
     }
+    /**
+     * Resets controller state to start tracking a new exercise.
+     * Reloads JSON data, segments, handlers, and resets rep counter.
+    */
     resetForNewExercise() {
+        // Update the current exercise identifiers & targets
         this.currentExercise = this.exerciseNames[this.currentExerciseIdx];
         this.jsonPath = this.exercisePlan[this.currentExercise].json_path;
         this.targetReps = this.exercisePlan[this.currentExercise].reps;
+        // Reload exercise data and segment definitions
         this.yoga = new YogaDataExtractor(this.jsonPath);
         this.segments = this.yoga.segments();
+        // Rebuild phase handlers for the new exercise
         this.phaseHandlers = this._initializeHandlers();
         console.log(`Phase handlers initialized: ${this.phaseHandlers}`);
-
+        // Reset rep count for the new exercise
         this.count = 0;
     }
+    /**
+     * Determines whether the controller should switch into a relaxation (rest) phase,
+     * based on lost pose, incorrect facing, or timeouts in transition phases.
+     *
+     * @param {number} currentTime - Current timestamp in milliseconds
+     * @returns {boolean} - True if relaxation should be entered
+     */
     shouldEnterRelaxation(currentTime) {
         const current = this.segments[this.currentSegmentIdx];
         const elapsed = currentTime - this.lastValidPoseTime;
@@ -267,26 +331,43 @@ export class Controller {
 
         return false;
     }
-
+    /**
+     * Handles the relaxation (rest) phase logic.
+     * When called, enters relaxation if not already in it, processes the relaxation phase,
+     * and checks exit conditions (either completion or timeout).
+     *
+     * @param {number} currentTime - Current timestamp in milliseconds
+     */
     handleRelaxationPhase(currentTime) {
-        
+        // If we haven’t yet flagged that we're in relaxation, initialize it
         if (!this.inRelaxation) {
             this.inRelaxation = true;
             this.relaxationEnteredTime = currentTime;
             console.log("Entering relaxation phase");
         }
-
+        // Create a fresh RelaxationPhase handler for processing this phase
         const handler = new RelaxationPhase(this);
+        // Run the relaxation phase logic (e.g., check if user has returned to neutral pose)
         const { phase, completed } = handler.process(currentTime);
 
-        // Check exit conditions
+        // Exit the relaxation phase when either:
+        //  • the handler reports completion (e.g., user is ready to resume), or
+        //  • a hard timeout of 30 seconds has elapsed
         if (completed || (currentTime - this.relaxationEnteredTime) > 30000) {
             this.inRelaxation = false;
             this.lastValidPoseTime = currentTime;
             console.log("Exiting relaxation phase");
         }
     }
-
+    /**
+     * Provides the values to return from processExercise() when in a relaxation phase.
+     *
+     * @returns {[string, string, number, number]}
+     *   • 'relaxation' – current phase
+     *   • this.currentExercise – name of the exercise being rested from
+     *   • this.count – how many reps completed so far
+     *   • this.targetReps – total reps targeted
+     */
     getRelaxationReturnValues() {
         /** Return values when in relaxation phase */
         return [
@@ -297,7 +378,10 @@ export class Controller {
         ];
 
     }
-    // In controller.js - Modified processExercise()
+    // Note: The modified processExercise() method in controller.js should call
+    // handleRelaxationPhase() and getRelaxationReturnValues() when shouldEnterRelaxation()
+    // returns true, integrating these helpers into the main state machine.
+
     processExercise(currentTime) {
         // Handle relaxation phase entry
         if (!this.segments || this.segments.length === 0) {
