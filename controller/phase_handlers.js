@@ -76,7 +76,7 @@ export class StartPhase extends BasePhase {
             this.controller.frame,
             idealStartingKeypoints,
             this.controller.normalizedKeypoints,
-            currentTime,
+            this.hipPoint,
             this.thresholds
         );
         // Update the controller’s canvas context with any drawings from checkBendback
