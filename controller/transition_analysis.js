@@ -67,10 +67,20 @@ export class TransitionAnalyzer {
         return [ctx, false];
     }
 
+    // transition_analysis.js
     _toPixelCoords(point, width, height) {
-        return [(point[0] + 1) * width / 2, (point[1] + 1) * height / 2];
-    }
+        // Handle array or object format
+        const x = point.x ?? point[0] ?? 0;
+        const y = point.y ?? point[1] ?? 0;
 
+        const safeWidth = width || 1280;
+        const safeHeight = height || 720;
+
+        return [
+            (x + 1) * safeWidth / 2,
+            (y + 1) * safeHeight / 2
+        ];
+    }
     getTransitionEndTarget(currentSegmentIdx) {
         for (const path of this.transitionPaths) {
             if (currentSegmentIdx > path.startSegmentIdx && currentSegmentIdx <= path.endSegmentIdx) {
@@ -92,6 +102,7 @@ export function integrateWithController(controller, transitionAnalyzer) {
             const width = this.frame.canvas.width;
             const height = this.frame.canvas.height;
             const userLeftWrist = this.normalizedKeypoints[15];
+            console.info(`User wrist position is: ${userLeftWrist}`);
             const userWristPixel = transitionAnalyzer._toPixelCoords(userLeftWrist, width, height);
 
             for (const path of transitionAnalyzer.transitionPaths) {
@@ -103,6 +114,8 @@ export function integrateWithController(controller, transitionAnalyzer) {
                         this.frame = ctx;
                         if (withinPath) {
                             const targetWrist = transitionAnalyzer.getTransitionEndTarget(this.currentSegmentIdx);
+                            
+                            console.info("working till here")
                             const targetPixel = transitionAnalyzer._toPixelCoords(targetWrist, width, height);
                             this.frame.beginPath();
                             this.frame.moveTo(userWristPixel[0], userWristPixel[1]);
@@ -119,6 +132,7 @@ export function integrateWithController(controller, transitionAnalyzer) {
                             const idealKeypoints = this.getIdealKeypoints(currentSegment.phase);
                             if (idealKeypoints.length) {
                                 const targetWrist = idealKeypoints[15];
+                                console.info("working till here")
                                 const targetPixel = transitionAnalyzer._toPixelCoords(targetWrist, width, height);
                                 this.frame.beginPath();
                                 this.frame.moveTo(userWristPixel[0], userWristPixel[1]);

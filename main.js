@@ -1,83 +1,339 @@
-// // main.js
-import { Controller } from './controller/controller.js';
-import { printTextOnFrame } from './utils/camera_utils.js';
+// main.js
+// Entry point for the Yoga Tracker visualizer.
+// Handles video source selection (camera or upload), feeds frames into MediaPipe Pose,
+// and delegates pose processing to the Controller for exercise segmentation and rep counting.
+
+import { Controller } from './controller/controller.js';          // Core logic for exercise segmentation & rep counting
+import { printTextOnFrame } from './utils/camera_utils.js';      // Utility to overlay text on the canvas
+
 console.log('Starting main.js');
-const videoElement = document.getElementById('videoElement');
-const canvasElement = document.getElementById('outputCanvas');
-const canvasCtx = canvasElement.getContext('2d');
+
+// Grab references to DOM elements
+const videoElement = document.getElementById('videoElement');      // <video> displaying camera/upload
+const canvasElement = document.getElementById('outputCanvas');     // <canvas> overlay for drawing results
+const canvasCtx = canvasElement.getContext('2d');                  // Canvas 2D drawing context
+const cameraBtn = document.getElementById('cameraBtn');            // Button to start webcam
+const uploadBtn = document.getElementById('uploadBtn');            // Button to trigger file upload
+const videoUploadInput = document.getElementById('videoUploadInput'); // Hidden <input type="file">
 
 console.log('Initializing MediaPipe Pose');
+// Initialize MediaPipe Pose solution
 const pose = new Pose({
     locateFile: (file) => {
         console.log(`Loading MediaPipe file: ${file}`);
+        // Load model and WASM files from CDN
         return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
     }
 });
+// Configure Pose parameters
 pose.setOptions({
-    modelComplexity: 2,
-    minDetectionConfidence: 0.5,
-    minTrackingConfidence: 0.5
+    modelComplexity: 2,             // Use the most complex (and accurate) model
+    minDetectionConfidence: 0.5,    // Minimum confidence for initial detection
+    minTrackingConfidence: 0.5      // Minimum confidence for tracking landmarks
 });
+// Register callback when Pose has results
+pose.onResults(onResults);
+
+// Define the exercise plan: mapping exercise names to keypoint JSON & target reps
+const exercisePlan = {
+    "Anuvittasana": {
+        "json_path": "assets/Avuvittasana_female_video_keypoints.json",
+        "reps": 3
+    }
+};
+
+console.log('Creating Controller instance');
+// Instantiate the Controller with our exercise plan
+const controller = new Controller(exercisePlan);
+
+let videoSource = null;    // Tracks whether source is 'camera' or 'upload'
+let lastVideoTime = -1;    // For uploaded videos, avoid reprocessing the same frame
+
+// =======================
+// Event Listeners
+// =======================
+
+// When "Use Camera" clicked: stop any existing source, then start webcam
+cameraBtn.addEventListener('click', () => {
+    stopVideoSources();
+    setupCamera();
+    videoSource = 'camera';
+});
+
+// When "Upload Video" clicked: open file selector
+uploadBtn.addEventListener('click', () => {
+    videoUploadInput.click();
+});
+
+// When a file is selected: stop existing source, then load & process the uploaded video
+videoUploadInput.addEventListener('change', (e) => {
+    if (e.target.files && e.target.files[0]) {
+        stopVideoSources();
+        handleVideoUpload(e.target.files[0]);
+        videoSource = 'upload';
+    }
+});
+
+// =======================
+// Video Source Management
+// =======================
+
+// Stop and clean up any existing video source (camera stream or uploaded video)
+function stopVideoSources() {
+    // If using camera: stop all media tracks
+    if (videoElement.srcObject) {
+        const tracks = videoElement.srcObject.getTracks();
+        tracks.forEach(track => track.stop());
+        videoElement.srcObject = null;
+    }
+    // If using upload: revoke blob URL and clear src
+    if (videoElement.src) {
+        URL.revokeObjectURL(videoElement.src);
+        videoElement.src = '';
+    }
+}
+
+// Request access to the webcam and stream into <video>
+async function setupCamera() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        console.error('MediaDevices API not supported');
+        alert('Please use HTTPS and a supported browser');
+        return;
+    }
+
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        videoElement.srcObject = stream;
+        videoElement.onloadedmetadata = () => {
+            initializeVideoProcessing();
+        };
+    } catch (error) {
+        console.error('Camera error:', error);
+        alert('Camera access denied. Please allow permissions.');
+    }
+}
+
+// Load the uploaded video file into <video> and loop it
+function handleVideoUpload(file) {
+    const url = URL.createObjectURL(file);
+    videoElement.src = url;
+    videoElement.onloadedmetadata = () => {
+        initializeVideoProcessing();
+    };
+    videoElement.loop = true;
+}
+
+// =======================
+// Video Processing Pipeline
+// =======================
+
+// Once video metadata is ready, size the canvas, initialize Controller, and start the loop
+function initializeVideoProcessing() {
+    // Match canvas size to video dimensions
+    canvasElement.width = videoElement.videoWidth;
+    canvasElement.height = videoElement.videoHeight;
+    
+    // Load exercise segments (from JSON) into the controller
+    controller.initialize().then(() => {
+        if (controller.segments.length > 0) {
+            controller.startExerciseSequence();  // Prepare for first exercise
+            lastVideoTime = -1;
+            requestAnimationFrame(processFrame); // Begin frame-by-frame processing
+        } else {
+            console.error('Failed to initialize segments');
+            alert('Exercise data failed to load');
+        }
+    }).catch(error => {
+        console.error('Controller init error:', error);
+    });
+}
+
+// Callback invoked by MediaPipe Pose when a pose has been detected in the latest frame
+async function onResults(results) {
+    controller.updateFrame(results);  // Supply pose landmarks & segmentation mask to Controller
+}
+
+// Core loop: grab a frame, send to Pose, draw video + overlays, compute reps & phases
+async function processFrame(timestamp) {
+    // For uploads: skip processing if video time hasn't advanced
+    if (videoSource === 'upload') {
+        if (videoElement.currentTime === lastVideoTime) {
+            requestAnimationFrame(processFrame);
+            return;
+        }
+        lastVideoTime = videoElement.currentTime;
+    }
+
+    // Send current video frame to MediaPipe Pose
+    await pose.send({ image: videoElement });
+    
+    // Draw base video frame onto canvas
+    canvasCtx.save();
+    canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+    canvasCtx.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
+
+    // Compute elapsed time in seconds for exercise logic
+    const currentTime = timestamp / 1000;
+    controller.frame = canvasCtx;  // Give Controller the canvas context to draw on
+    // processExercise returns [phase, name, repsCompleted, totalReps]
+    const [currentPhase, exerciseName, repCount, totalReps] = controller.processExercise(currentTime);
+
+    // If we're in an active rep, overlay the exercise name and rep count
+    if (repCount >= 0) {
+        printTextOnFrame(
+            canvasCtx,
+            `Exercise: ${exerciseName} | Reps: ${repCount}/${totalReps}`,
+            { x: 10, y: 30 },
+            'green'
+        );
+    }
+
+    canvasCtx.restore();
+    // Loop to next animation frame
+    requestAnimationFrame(processFrame);
+}
+
+
+
+// import { Controller } from './controller/controller.js';
+// import { printTextOnFrame } from './utils/camera_utils.js';
+
+// console.log('Starting main.js');
+// const videoElement = document.getElementById('videoElement');
+// const canvasElement = document.getElementById('outputCanvas');
+// const canvasCtx = canvasElement.getContext('2d');
+// const cameraBtn = document.getElementById('cameraBtn');
+// const uploadBtn = document.getElementById('uploadBtn');
+// const videoUploadInput = document.getElementById('videoUploadInput');
+
+// console.log('Initializing MediaPipe Pose');
+// const pose = new Pose({
+//     locateFile: (file) => {
+//         console.log(`Loading MediaPipe file: ${file}`);
+//         return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
+//     }
+// });
+// pose.setOptions({
+//     modelComplexity: 2,
+//     minDetectionConfidence: 0.5,
+//     minTrackingConfidence: 0.5
+// });
 // pose.onResults(onResults);
 
 // const exercisePlan = {
 //     "Anuvittasana": {
-//         "json_path": "assets/man_keypoints_data_normalized.json",
+//         "json_path": "assets/Avuvittasana_female_video_keypoints.json",
 //         "reps": 3
 //     }
 // };
 
 // console.log('Creating Controller instance');
 // const controller = new Controller(exercisePlan);
+// let videoSource = null; // 'camera' or 'upload'
+// let lastVideoTime = -1;
+
+// // Set up camera
+// cameraBtn.addEventListener('click', () => {
+//     stopVideoSources();
+//     setupCamera();
+//     videoSource = 'camera';
+// });
+
+// // Set up video upload
+// uploadBtn.addEventListener('click', () => {
+//     videoUploadInput.click();
+// });
+
+// videoUploadInput.addEventListener('change', (e) => {
+//     if (e.target.files && e.target.files[0]) {
+//         stopVideoSources();
+//         handleVideoUpload(e.target.files[0]);
+//         videoSource = 'upload';
+//     }
+// });
+
+// function stopVideoSources() {
+//     // Stop camera stream if exists
+//     if (videoElement.srcObject) {
+//         const tracks = videoElement.srcObject.getTracks();
+//         tracks.forEach(track => track.stop());
+//         videoElement.srcObject = null;
+//     }
+    
+//     // Clear uploaded video if exists
+//     if (videoElement.src) {
+//         URL.revokeObjectURL(videoElement.src);
+//         videoElement.src = '';
+//     }
+// }
 
 // async function setupCamera() {
 //     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-//         console.error('MediaDevices API is not supported in this browser or context.');
-//         alert('Please run this app over HTTP/HTTPS (e.g., via a local server) and ensure your browser supports the MediaDevices API.');
+//         console.error('MediaDevices API not supported');
+//         alert('Please use HTTPS and a supported browser');
 //         return;
 //     }
 
 //     try {
-//         console.log('Requesting camera access');
 //         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
 //         videoElement.srcObject = stream;
-//         videoElement.onloadedmetadata = async () => {
-//             console.log('Video metadata loaded, starting playback');
-//             videoElement.play();
-//             canvasElement.width = videoElement.videoWidth;
-//             canvasElement.height = videoElement.videoHeight;
-//             console.log('Initializing controller');
-//             await controller.initialize();
-//             if (controller.segments.length > 0) {
-//                 console.log('Starting exercise sequence');
-//                 controller.startExerciseSequence();
-//                 requestAnimationFrame(processFrame);
-//             } else {
-//                 console.error('Failed to initialize segments, exercise cannot start');
-//                 alert('Failed to load exercise data. Please check the JSON file path and contents.');
-//             }
+//         videoElement.onloadedmetadata = () => {
+//             initializeVideoProcessing();
 //         };
 //     } catch (error) {
-//         console.error('Error accessing camera:', error);
-//         alert('Could not access the camera. Please allow camera permissions and try again.');
+//         console.error('Camera error:', error);
+//         alert('Camera access denied. Please allow permissions.');
 //     }
 // }
 
+// function handleVideoUpload(file) {
+//     const url = URL.createObjectURL(file);
+//     videoElement.src = url;
+//     videoElement.onloadedmetadata = () => {
+//         initializeVideoProcessing();
+//     };
+//     videoElement.loop = true;
+// }
+
+// function initializeVideoProcessing() {
+//     canvasElement.width = videoElement.videoWidth;
+//     canvasElement.height = videoElement.videoHeight;
+    
+//     controller.initialize().then(() => {
+//         if (controller.segments.length > 0) {
+//             controller.startExerciseSequence();
+//             lastVideoTime = -1;
+//             requestAnimationFrame(processFrame);
+//         } else {
+//             console.error('Failed to initialize segments');
+//             alert('Exercise data failed to load');
+//         }
+//     }).catch(error => {
+//         console.error('Controller init error:', error);
+//     });
+// }
+
 // async function onResults(results) {
-//     console.log('Pose results received:', results);
 //     controller.updateFrame(results);
 // }
 
 // async function processFrame(timestamp) {
-//     //console.log('Processing frame at timestamp:', timestamp);
-//     await pose.send({ image: videoElement });
+//     // For uploaded videos, only process new frames
+//     if (videoSource === 'upload') {
+//         if (videoElement.currentTime === lastVideoTime) {
+//             requestAnimationFrame(processFrame);
+//             return;
+//         }
+//         lastVideoTime = videoElement.currentTime;
+//     }
 
-//     const currentTime = timestamp / 1000; // Convert to seconds
+//     await pose.send({ image: videoElement });
     
 //     canvasCtx.save();
 //     canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
 //     canvasCtx.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
 
+//     const currentTime = timestamp / 1000;
 //     controller.frame = canvasCtx;
 //     const [currentPhase, exerciseName, repCount, totalReps] = controller.processExercise(currentTime);
 
@@ -89,94 +345,3 @@ pose.setOptions({
 //     canvasCtx.restore();
 //     requestAnimationFrame(processFrame);
 // }
-
-// console.log('Setting up camera');
-// setupCamera().catch(error => console.error('Setup camera failed:', error));
-
-// main.js
-
-// 2) Your exercise plan + controller
-const exercisePlan = {
-  Anuvittasana: {
-    json_path: 'assets/man_keypoints_data_normalized.json',  // your normalized‑keypoints JSON
-    reps:      3
-  }
-};
-const controller = new Controller(exercisePlan);
-
-// 3) onResults now does **all** drawing + exercise logic
-pose.onResults(results => {
-  // 3a) Update your controller with the latest pose
-  controller.updateFrame(results);
-
-  // 3b) Clear + redraw the video frame
-  canvasCtx.save();
-  canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-  canvasCtx.drawImage(videoElement,
-                      0, 0,
-                      canvasElement.width,
-                      canvasElement.height);
-
-  // 3c) Run your exercise logic
-  //    (we use performance.now()/1000 as “currentTime” in seconds)
-  const currentTime = performance.now() / 1000;
-  const [phase, name, doneReps, totalReps] =
-    controller.processExercise(currentTime);
-
-  // 3d) Overlay your reps text
-  if (doneReps >= 0) {
-    printTextOnFrame(
-      canvasCtx,
-      `Exercise: ${name} | Reps: ${doneReps}/${totalReps}`,
-      { x: 10, y: 30 },
-      'green'
-    );
-  }
-
-  canvasCtx.restore();
-});
-
-// 4) A simple `onFrame()` loop to push each frame into MediaPipe
-async function onFrame() {
-  await pose.send({ image: videoElement });
-  requestAnimationFrame(onFrame);
-}
-
-// 5) Bootstrapping all together
-(async () => {
-  try {
-    // Wait for video metadata
-    await new Promise(resolve => {
-      videoElement.onloadedmetadata = resolve;
-      videoElement.load();
-    });
-
-    // Mute+autoplay to satisfy browser policies
-    videoElement.muted     = true;
-    videoElement.autoplay  = true;
-    videoElement.loop      = true;
-    videoElement.playsInline = true;
-    await videoElement.play();
-
-    // Match canvas to video size
-    canvasElement.width  = videoElement.videoWidth;
-    canvasElement.height = videoElement.videoHeight;
-
-    controller.frame = canvasCtx;
-
-
-    // Initialize your controller
-    await controller.initialize();
-    if (!controller.segments.length) {
-      throw new Error('No exercise segments loaded; check your JSON path!');
-    }
-    controller.startExerciseSequence();
-
-    // Start the MediaPipe→draw loop
-    requestAnimationFrame(onFrame);
-
-  } catch (err) {
-    console.error('Initialization failed:', err);
-    alert('Could not start Yoga Tracker. See console for details.');
-  }
-})();

@@ -1,0 +1,553 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f4f4f4;
+}
+
+header {
+    background-color: #f4f4f4;
+    color: #333;
+    padding: 10px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 40px auto;
+}
+
+.header-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    position: relative;
+}
+
+#companyLogo {
+    max-height: 100px;
+    position: absolute;
+    left: 1%;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+h1 {
+    font-size: 2.5em;
+    margin: 0;
+    text-align: center;
+}
+#requestJson {
+    cursor: pointer;
+    display: inline-block;
+    padding: 10px 20px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    margin: 10px 0;
+}
+.video-section, .operation-section {
+    margin: 20px auto;
+    text-align: center;
+}
+
+.video-section {
+    background-color: #fff;
+    padding: 20px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    text-align: left;
+}
+
+#videoPicker {
+    display: block;
+    margin: 20px auto;
+    padding: 10px;
+    background-color: #f37003;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+#videoPicker::-webkit-file-upload-button {
+    visibility: hidden;
+}
+
+#videoPicker::before {
+    content: 'Select a Video';
+    display: inline-block;
+    background: #f37003;
+    color: #fff;
+    padding: 10px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+#videoPlayer {
+    width: 100%;
+    max-width: 640px;
+    height: 500px;
+    max-height: 500px;
+}
+
+.video-player-group {
+    text-align: center;
+}
+
+.timeline-container {
+    margin-top: 10px;
+    width: 100%;
+    max-width: 640px; /* Matches video width */
+}
+
+.timeline {
+    position: relative;
+    height: 20px;
+    background-color: #ddd;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.marker {
+    position: absolute;
+    width: 10px;
+    height: 30px;
+    top: -5px;
+    cursor: ew-resize;
+    z-index: 10;
+}
+
+.start-marker {
+    background-color: #00cc00; /* Green for start */
+    left: 0;
+}
+
+.end-marker {
+    background-color: #ff0000; /* Red for end */
+    right: 0;
+    left: auto;
+}
+
+.button-group {
+    margin-top: 20px;
+}
+
+.button-group button {
+    padding: 10px 15px;
+    margin-right: 10px;
+    background-color: #f37003;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.button-group button:disabled {
+    background-color: #ccc;
+}
+
+.form-group {
+    margin-top: 20px;
+    margin-bottom: 20px;
+    padding: 15px;
+    background-color: #f5f5f5;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.form-group label {
+    display: block;
+    margin-top: 10px;
+    font-weight: bold;
+}
+
+.form-group input[type="text"],
+.form-group input[type="number"] {
+    width: 100%;
+    padding: 7px;
+    margin-top: 5px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 1rem;
+}
+
+.threshold-group {
+    margin-top: 10px;
+}
+
+.threshold-group h3 {
+    margin: 10px 0;
+    font-size: 1.2em;
+}
+
+.threshold-group div {
+    margin: 5px 0;
+    display: flex;
+    align-items: center;
+}
+
+.threshold-group input[type="checkbox"] {
+    margin-right: 10px;
+}
+
+.threshold-group label {
+    display: inline;
+    margin: 0 10px 0 0;
+    font-weight: normal;
+}
+
+.threshold-group input[type="text"] {
+    width: 150px;
+    padding: 5px;
+    margin: 0;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 1rem;
+}
+
+.threshold-group input[type="text"]:disabled {
+    background-color: #e9ecef;
+}
+
+.segment-info {
+    margin-top: 20px;
+}
+
+#segmentsTable {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+#segmentsTable, #segmentsTable th, #segmentsTable td {
+    border: 1px solid #ddd;
+}
+
+#segmentsTable th, #segmentsTable td {
+    padding: 10px;
+    text-align: left;
+}
+
+#segmentsTable th {
+    background-color: #f37003;
+    color: #fff;
+}
+
+#addNewSegment, #processVideo, #requestJson {
+    padding: 10px 15px;
+    margin: 10px;
+    background-color: #f37003;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+#addNewSegment:disabled, #processVideo:disabled, #requestJson:disabled {
+    background-color: #ccc;
+}
+
+.main {
+    display: flex;
+}
+
+.main .video-player-group {
+    margin-left: 10rem;
+    width: 50rem;
+}
+
+.main .form-group {
+    margin-left: 20rem;
+    margin-top: 8%;
+    margin-right: 5rem;
+    width: 40rem;
+    height: 20rem;
+}
+
+#frameRateDisplay {
+    margin: 10px 0;
+    font-size: 0.9em;
+    color: #666;
+}
+
+#frameRateValue {
+    font-weight: bold;
+    color: #f37003; /* Matches your theme */
+}
+
+.frame-number-display {
+    position: absolute;
+    top: -25px;
+    min-width: 40px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: bold;
+    color: #fff;
+    background-color: rgba(0, 0, 0, 0.7);
+    padding: 3px 6px;
+    border-radius: 10px;
+    pointer-events: none;
+}
+
+.start-frame-number {
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 204, 0, 0.8); /* Green for start */
+}
+
+.end-frame-number {
+    right: 50%;
+    transform: translateX(50%);
+    background-color: rgba(255, 0, 0, 0.8); /* Red for end */
+}
+
+.marker {
+    position: absolute;
+    width: 10px;
+    height: 30px;
+    top: -5px;
+    cursor: ew-resize;
+    z-index: 10;
+}
+
+/* Add to your existing CSS */
+.timeline-preview {
+    position: absolute;
+    bottom: 40px;
+    width: 160px;
+    height: 90px;
+    background-color: #000;
+    border-radius: 4px;
+    overflow: hidden;
+    pointer-events: none;
+    transform: translateX(-50%);
+    z-index: 20;
+    display: none;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+.timeline-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.timeline-preview::after {
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-top: 10px solid #000;
+}
+
+/* Add these CSS styles for the timeline preview functionality */
+
+.timeline-container {
+    position: relative;
+    margin: 20px 0;
+  }
+  
+  .timeline {
+    position: relative;
+    height: 10px;
+    background: #ddd;
+    border-radius: 5px;
+    margin: 20px 0;
+    cursor: pointer;
+  }
+  
+  .marker {
+    position: absolute;
+    top: -5px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    cursor: grab;
+    z-index: 10;
+  }
+  
+  .marker:active {
+    cursor: grabbing;
+  }
+  
+  .start-marker {
+    background: #4CAF50;
+    left: 0%;
+  }
+  
+  .end-marker {
+    background: #f44336;
+    left: 100%;
+  }
+  
+  .frame-number-display {
+    position: absolute;
+    top: 25px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 12px;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  
+  /* Timeline Preview Styles */
+  .timeline-preview {
+    position: absolute;
+    bottom: 30px; /* Position above the timeline */
+    width: 150px;
+    height: 100px;
+    background: rgba(0, 0, 0, 0.9);
+    border: 2px solid #fff;
+    border-radius: 8px;
+    display: none;
+    z-index: 100;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+  
+  .timeline-preview::before {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-top: 8px solid #fff;
+  }
+  
+  .timeline-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  
+  /* Enhanced timeline container for better interaction */
+  .timeline-container {
+    position: relative;
+    padding: 60px 0 20px 0; /* Extra space for previews */
+    margin: 20px 0;
+  }
+  
+  /* Hover effects for markers */
+  .marker:hover {
+    transform: scale(1.1);
+    transition: transform 0.2s ease;
+  }
+  
+  /* Loading state for preview */
+  .timeline-preview.loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 12px;
+  }
+  
+  .timeline-preview.loading::after {
+    content: 'Loading...';
+  }
+  
+  /* Responsive adjustments */
+  @media (max-width: 768px) {
+    .timeline-preview {
+      width: 120px;
+      height: 80px;
+    }
+    
+    .frame-number-display {
+      font-size: 10px;
+      padding: 1px 4px;
+    }
+  }
+
+  /* ADD THESE CSS RULES TO YOUR EXISTING styles.css */
+
+.timeline-container {
+    position: relative;
+    padding: 80px 0 20px 0; /* Extra space for previews */
+    margin: 20px 0;
+}
+
+.timeline-preview {
+    position: absolute;
+    bottom: 50px; /* Position above the timeline */
+    width: 160px;
+    height: 90px;
+    background: rgba(0, 0, 0, 0.9);
+    border: 2px solid #fff;
+    border-radius: 8px;
+    display: none;
+    z-index: 100;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    pointer-events: none;
+}
+
+.timeline-preview::before {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-top: 8px solid #fff;
+}
+
+.timeline-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+header {
+    background-color: #4a6fa5;
+    padding: 2rem 2rem;
+}
+
+nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.logo {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: rgb(24, 11, 11);
+}
+
+.nav-links {
+    display: flex;
+    gap: 1.5rem;
+}
+
+.nav-links a {
+    color: rgb(65, 29, 29);
+    text-decoration: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    transition: background-color 0.3s;
+}
+
+.nav-links a:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+

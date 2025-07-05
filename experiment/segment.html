@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yoga Pose Feedback Application</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- Load MediaPipe Pose -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+</head>
+<body>
+    <nav>
+        <div class="logo">Yoga Tracker</div>
+        <div class="nav-links">
+            <a href="../index.html">Home</a>
+            <a href="segment.html">Segmentor Frontend</a>
+        </div>
+    </nav>
+    <header>
+        <div class="header-content">
+            <img src="../assets/Main_logo.png" alt="Company Logo" id="companyLogo">
+            <h1>Yoga Pose Feedback Application</h1>
+        </div>
+    </header>
+
+    <section class="video-section">
+        <input type="file" id="videoPicker" accept="video/*">
+        <div class="main">
+            <div class="video-player-group">
+                <h2>Video and Segments</h2>
+                <video id="videoPlayer" controls></video>
+                <div id="frameRateDisplay">
+                    Detected Frame Rate: <span id="frameRateValue">--</span> FPS | 
+                    Total Frames: <span id="totalFramesDisplay">--</span>
+                </div>
+                
+                <div class="timeline-container">
+                    <div id="timeline" class="timeline">
+                        <div id="startMarker" class="marker start-marker">
+                            <div class="frame-number-display start-frame-number">0</div>
+                        </div>
+                        <div id="endMarker" class="marker end-marker">
+                            <div class="frame-number-display end-frame-number">0</div>
+                        </div>
+                    </div>
+                    <!--TWO PREVIEW ELEMENTS -->
+                    <div id="startPreview" class="timeline-preview"></div>
+                    <div id="endPreview" class="timeline-preview"></div>
+                </div>
+                <div class="button-group">
+                    <button id="playSegment">Play Segment</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="yogaPhase">Yoga Phase:</label>
+                <select id="yogaPhase" name="yogaPhase" required>
+                    <option value="">Select a phase</option>
+                    <option value="starting">Starting</option>
+                    <option value="holding">Holding</option>
+                    <option value="transition">Transition</option>
+                    <option value="ending">Ending</option>
+                    <option value="relaxation">Relaxation</option>
+                </select>
+                <label for="suggestion">Feedback:</label>
+                <input type="text" id="suggestion" rows="2" name="suggestion">
+                <div class="threshold-group">
+                    <h3>Thresholds</h3>
+                    <div>
+                        <label for="wholeBodyThreshold">Whole Body (Mandatory):</label>
+                        <input type="text" id="wholeBodyThreshold" name="wholeBodyThreshold" placeholder="e.g., 0.7" required>
+                    </div>
+                    <div>
+                        <input type="checkbox" id="leftHandCheckbox" name="leftHandCheckbox">
+                        <label for="leftHandThreshold">Left Hand:</label>
+                        <input type="text" id="leftHandThreshold" name="leftHandThreshold" placeholder="e.g., 0.5" disabled>
+                    </div>
+                    <div>
+                        <input type="checkbox" id="rightHandCheckbox" name="rightHandCheckbox">
+                        <label for="rightHandThreshold">Right Hand:</label>
+                        <input type="text" id="rightHandThreshold" name="rightHandThreshold" placeholder="e.g., 0.5" disabled>
+                    </div>
+                    <div>
+                        <input type="checkbox" id="leftLegCheckbox" name="leftLegCheckbox">
+                        <label for="leftLegThreshold">Left Leg:</label>
+                        <input type="text" id="leftLegThreshold" name="leftLegThreshold" placeholder="e.g., 0.5" disabled>
+                    </div>
+                    <div>
+                        <input type="checkbox" id="rightLegCheckbox" name="rightLegCheckbox">
+                        <label for="rightLegThreshold">Right Leg:</label>
+                        <input type="text" id="rightLegThreshold" name="rightLegThreshold" placeholder="e.g., 0.5" disabled>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="segmentInfoDisplay" class="segment-info">
+            <table id="segmentsTable">
+                <thead>
+                    <tr>
+                        <th>Segment</th>
+                        <th>Start Frame</th>
+                        <th>End Frame</th>
+                        <th>Phase</th>
+                        <th>Suggestion</th>
+                        <th>Thresholds</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </section>
+    <section class="operation-section">
+        <button id="addNewSegment">Add New Segment</button>
+        <div id="processingProgress" style="margin: 10px 0; display: none;">
+            Processing: <span id="currentFrame">0</span>/<span id="totalFrames">0</span> frames
+        </div>
+        <button id="processVideo">Process Video</button>
+        <button id="requestJson">Download Json</button>
+    </section>
+    <script>
+        // Load the navigation bar
+        fetch('../navbar.html')
+            .then(response => response.text())
+            .then(data => {
+                document.getElementById('navbar-container').innerHTML = data;
+            });
+    </script>
+    <script src="preview.js"></script>
+</body>
+</html>
