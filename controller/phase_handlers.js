@@ -14,7 +14,7 @@ import { checkBendback } from './holding.js';
 export class BasePhase {
     constructor(controller) {
         this.controller = controller;
-        this.holdDuration = 2;
+        this.holdDuration = 0;
         this.normalizedKeypoints = null;
         this.hipPoint = 0;
     }
@@ -419,9 +419,11 @@ export class EndingPhase extends BasePhase {
         console.log(`Ending Frame Success: ${success}`);
         // 4) If posture and facing are correct, prompt and hold
         if (success && (detectedFacing === this.targetFacing)) {
+            
         // if ((detectedFacing === this.targetFacing)) {
             printTextOnFrame(this.controller.frame, 'Repetition completed', { x: 10, y: 60 }, 'green');
             if (currentTime - this.controller.startTime >= this.holdDuration) {
+                this.controller.count++;
                 console.log('Ending phase completed');
                 return [phase, true];
             }

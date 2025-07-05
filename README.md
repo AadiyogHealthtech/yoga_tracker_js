@@ -1,6 +1,6 @@
 # Yoga Tracker 🧘
 
-![Yoga Tracker Flowchart](assets/images/YogaTracker_JS.png)
+![Yoga Tracker Flowchart](assets/images/yoga_tracker_JS.png)
 
 Yoga Tracker is a web-based application that uses computer vision to guide users through yoga exercises, track their poses, and count repetitions in real-time. It leverages MediaPipe Pose to detect 33 body keypoints and provides visual feedback to help users perfect their form.
 

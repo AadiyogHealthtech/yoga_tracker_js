@@ -243,7 +243,6 @@ export class Controller {
      */
     handleRepCompletion(currentTime) {
         // Increment the completed rep counter
-        this.count++;
         // If we've reached or exceeded target reps for this exercise...
         if (this.count >= this.targetReps) {
             // ...and there is another exercise in the plan
