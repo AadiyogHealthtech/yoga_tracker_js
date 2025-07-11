@@ -48,7 +48,7 @@ export function checkPoseSuccess(idealKeypoints, normalizedKeypoints, thresholds
   }
   console.log("No of success points:", underThresholdCount);
   // success if at least 8 of the 10 keypoints are "close enough"
-  return underThresholdCount >= 8;
+  return underThresholdCount > 9;
 }
 
 
@@ -65,7 +65,7 @@ function calculateEuclideanDistance(p1, p2) {
   return Math.hypot(dx, dy);
 }
 
-export function checkBendback(ctx, idealKeypoints, normalizedKeypoints, hipPoint, thresholds) {
+export function checkBendback(ctx, idealKeypoints, normalizedKeypoints, hipPoint, thresholds, curr_phase = null) {
     if (!normalizedKeypoints) {
         printTextOnFrame(ctx, 'Keypoints not detected', { x: 50, y: 50 }, 'red');
         return [ctx, false];
@@ -162,37 +162,39 @@ export function checkBendback(ctx, idealKeypoints, normalizedKeypoints, hipPoint
           `Index ${idx} — User pixel: (${userPix[0].toFixed(1)}, ${userPix[1].toFixed(1)})`,
           `Ideal pixel: (${idealPix[0].toFixed(1)}, ${idealPix[1].toFixed(1)})`
       );
-
-      // (optional) draw guidance circle + arrow for each joint:
-      const DistPix = calculateEuclideanDistance(hipPix, idealPix);
-      const radius  = thresholds[idx] * DistPix;  
-      ctx.beginPath();
-      ctx.arc(idealPix[0], idealPix[1], radius, 0, Math.PI*2);
-      ctx.strokeStyle = "#FF0000";
-      ctx.lineWidth   = 2;
-      ctx.stroke();
-      // arrow
-      ctx.beginPath();
-      ctx.moveTo(userPix[0], userPix[1]);
-      ctx.lineTo(idealPix[0], idealPix[1]);
-      ctx.strokeStyle = "yellow";
-      ctx.lineWidth   = 3;
-      ctx.stroke();
-      // arrowhead
-      const angle     = Math.atan2(idealPix[1]-userPix[1], idealPix[0]-userPix[0]);
-      const arrowSize = 10;
-      ctx.beginPath();
-      ctx.moveTo(idealPix[0], idealPix[1]);
-      ctx.lineTo(
-          idealPix[0] - arrowSize*Math.cos(angle + Math.PI/6),
-          idealPix[1] - arrowSize*Math.sin(angle + Math.PI/6)
-      );
-      ctx.moveTo(idealPix[0], idealPix[1]);
-      ctx.lineTo(
-          idealPix[0] - arrowSize*Math.cos(angle - Math.PI/6),
-          idealPix[1] - arrowSize*Math.sin(angle - Math.PI/6)
-      );
-      ctx.stroke();
+      if(curr_phase == null){
+        // (optional) draw guidance circle + arrow for each joint:
+        const DistPix = calculateEuclideanDistance(hipPix, idealPix);
+        const radius  = thresholds[idx] * DistPix;  
+        ctx.beginPath();
+        ctx.arc(idealPix[0], idealPix[1], radius, 0, Math.PI*2);
+        ctx.strokeStyle = "#FF0000";
+        ctx.lineWidth   = 2;
+        ctx.stroke();
+        // arrow
+        ctx.beginPath();
+        ctx.moveTo(userPix[0], userPix[1]);
+        ctx.lineTo(idealPix[0], idealPix[1]);
+        ctx.strokeStyle = "yellow";
+        ctx.lineWidth   = 3;
+        ctx.stroke();
+        // arrowhead
+        const angle     = Math.atan2(idealPix[1]-userPix[1], idealPix[0]-userPix[0]);
+        const arrowSize = 10;
+        ctx.beginPath();
+        ctx.moveTo(idealPix[0], idealPix[1]);
+        ctx.lineTo(
+            idealPix[0] - arrowSize*Math.cos(angle + Math.PI/6),
+            idealPix[1] - arrowSize*Math.sin(angle + Math.PI/6)
+        );
+        ctx.moveTo(idealPix[0], idealPix[1]);
+        ctx.lineTo(
+            idealPix[0] - arrowSize*Math.cos(angle - Math.PI/6),
+            idealPix[1] - arrowSize*Math.sin(angle - Math.PI/6)
+        );
+        ctx.stroke();
+      }
+      
     });
 
     const success = checkPoseSuccess(idealKeypoints, normalizedKeypoints, thresholds_new);

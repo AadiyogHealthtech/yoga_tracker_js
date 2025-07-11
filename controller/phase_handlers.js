@@ -3,6 +3,7 @@ console.log('Loading phase_handlers.js');
 // Import utility functions for facing detection, DTW scoring, distance calculation, and drawing overlays
 import { detectFacing, calculateDtwScore, calculateEuclideanDistance } from '../utils/utils.js';
 import { printTextOnFrame, drawDtwScores } from '../utils/camera_utils.js';
+import { denormalizeKeypoints } from '../utils/utils.js';
 // Import a specific check for bend-back posture used in the starting phase
 import { checkBendback } from './holding.js';
 /**
@@ -58,6 +59,7 @@ export class StartPhase extends BasePhase {
      *   • completed flag (true once holdDuration is reached in correct pose)
      */
     process(currentTime) {
+        this.controller.reset_phase = true;
         console.log('Processing StartPhase');
         // 1) Detect current facing, defaulting to 'random' if no landmarks
         const detectedFacing = this.controller.landmarks ? detectFacing(this.controller.landmarks) : 'random';
@@ -124,80 +126,163 @@ export class StartPhase extends BasePhase {
  * and checking their movement against the next phase’s ideal pose.
  */
 export class TransitionPhase extends BasePhase {
-    /**
-     * @param {Controller} controller - The main Controller instance
-     * @param {string} startFacing - The initial facing direction (unused here, but available)
-     */
-    constructor(controller , startFacing) {
-        super(controller);
-        // Maximum allowed time (seconds) to complete this transition
-        this.transitionTimeout = 15; 
-        // Expected facing direction when starting the transition (not enforced here)
-        this.startFacing = startFacing;
-        // this.thresholds = thresholds;
-        // this.thresholds = (thresholds ? [...thresholds] : [9.5, 4, 3]).map(t => t * 1.5);
-        this.thresholds = null;
-        console.log(`Transition thresholds: ${this.thresholds}`);
+  constructor(controller, startFacing, transitionAnalyzer) {
+    super(controller);
+    this.transitionTimeout   = 15; // milliseconds
+    this.startFacing         = startFacing;
+    this.transitionAnalyzer  = transitionAnalyzer;
+
+    // state for the waypoint‐queue analyzer
+    this._queueSegmentIdx = null;
+    this._pointQueue      = [];
+    this._originalLength  = 0;
+  }
+  reset_exercise(){
+    this._queueSegmentIdx  = null;
+    this._pointQueue       = [];
+    this._originalLength   = 0;
     }
-    /**
-     * process
-     * Called each frame during a transition. Draws a countdown timer,
-     * retrieves the next phase’s ideal keypoints, and runs a posture check.
-     *
-     * @param {number} currentTime - Current timestamp (ms)
-     * @returns {[string, boolean]}
-     *   • current phase name
-     *   • success flag indicating whether transition posture is met
-     */
-    process(currentTime) {
-        const elapsedMs = currentTime - this.controller.startTime;
-        const elapsedSec = elapsedMs / 1000;
-        // Time remaining in ms before timeout
-        const timeLeft = this.transitionTimeout - elapsedMs;
-        // Overlay the countdown timer on the video frame
-        printTextOnFrame(
-            this.controller.frame,
-            `Transition: ${(timeLeft).toFixed(1)}s remaining`,
-            { x: 10, y: 60 },
-            'yellow'
-        );
-        // Get NEXT phase's ideal keypoints (if valid index)
-        const nextSegmentIdx = this.controller.currentSegmentIdx + 1;
-        console.log(`next segment index is: ${nextSegmentIdx}`);
-        const phase = this.controller.segments[nextSegmentIdx].phase; 
-        // Pull thresholds from the next segment’s configuration
-        this.thresholds = this.controller.segments[nextSegmentIdx].thresholds;
-        console.log(`Transition thresholds: ${this.thresholds}`);
-        console.log(`next phase is: ${nextSegmentIdx}`);
-        // Fetch the ideal keypoints for the next phase’s midpoint
-        const idealKeypoints = this.controller.getNextIdealKeypoints(phase, nextSegmentIdx);
-        
-        console.log(`Here are the Keypoints ${idealKeypoints}`);
-        
-        console.log(`Here are the Keypoints size ${idealKeypoints.length}`);
-        console.log(`Normalised Keypoints Transition ${this.controller.normalizedKeypoints}`);
-        // Run a bend-back/posture check against the next phase’s ideal pose
-        // The checkBendback function returns an updated canvas context and success boolean
-        const [ctx, success] = checkBendback(
-            this.controller.frame,
-            idealKeypoints,
-            this.controller.normalizedKeypoints,
-            this.controller.hipPoint,
-            this.thresholds
-        );
-        // Update the controller’s frame context with any helper drawings
-        this.controller.frame = ctx;
-        console.log(`Success: ${success}`);
-        // If the transition time has fully elapsed, reset to the relaxation segment
-        if((elapsedMs >= this.transitionTimeout)){
-            this.controller.currentSegmentIdx = 0;
+  process(currentTime) {
+    if(this.controller.reset_phase){
+        this.controller.reset_phase = false;
+        this.reset_exercise();
+    }
+    const elapsedMs = currentTime - this.controller.startTime;
+    const timeLeft  = this.transitionTimeout - elapsedMs;
+    const ctx       = this.controller.frame;
+
+    // -- timeout reset --
+    if (timeLeft <= 0) {
+      this.controller.currentSegmentIdx = 0;
+      return [ this.controller.segments[0].phase, false ];
+    }
+
+    // draw countdown
+    printTextOnFrame(
+      ctx,
+      `Transition: ${(timeLeft).toFixed(1)}s remaining`,
+      { x: 10, y: 60 },
+      'yellow'
+    );
+
+    const currIdx   = this.controller.currentSegmentIdx;
+    const nextIdx   = currIdx + 1;
+    const nextSeg   = this.controller.segments[nextIdx];
+    const phase     = nextSeg.phase;
+    const thresholds= nextSeg.thresholds;
+
+    // 1) posture check
+    const idealKps = this.controller.getNextIdealKeypoints(phase, nextIdx);
+    let [ ctxAfterPosture, postureGood ] = checkBendback(
+      ctx,
+      idealKps,
+      this.controller.normalizedKeypoints,
+      this.controller.hipPoint,
+      thresholds,
+      "Transition_phase"
+    );
+
+    // 2) path‐following queue logic
+    let pathGood = true;
+    const LEFT_WRIST = 16;
+    const nk = this.controller.normalizedKeypoints;
+    const hip = this.controller.hipPoint;
+
+    if (nk) {
+      // initialize queue once per segment
+      if (this._queueSegmentIdx !== currIdx) {
+        this._queueSegmentIdx = currIdx;
+        this._pointQueue = [];
+
+        const { start: s, end: e } = this.controller.segments[currIdx];
+        const prevSeg = this.controller.segments[currIdx-1] || {};
+        const prevThresh = prevSeg.thresholds;
+        const prevIdealAll = this.controller.getPrevIdealKeypoints(currIdx-1);
+
+        if (prevThresh) {
+          for (let i = s; i < e; i++) {
+            const ideal = this.controller.yoga.getIdealKeypoints(i, i+1)[0];
+            const denorm= denormalizeKeypoints(ideal, hip);
+
+            // if the previous‐segment posture fails, queue this frame
+            const [ , ok ] = checkBendback(
+              ctxAfterPosture,
+              prevIdealAll,
+              ideal,
+              hip,
+              prevThresh
+            );
+            if (!ok) this._pointQueue.push(denorm);
+          }
+          this._originalLength = this._pointQueue.length;
         }
-        // Return the current segment’s phase name and whether the user met the posture
-        return [
-            this.controller.segments[this.controller.currentSegmentIdx].phase,
-            success];
+      }
+
+      // if there are waypoints, draw + check next one
+      if (this._pointQueue.length > 0) {
+        // draw all remaining targets
+        for (const frame of this._pointQueue) {
+          const pt = frame[LEFT_WRIST] || frame;
+          if (!pt) continue;
+          const [ tx, ty ] = this._toPixelCoords(pt, ctx.canvas.width, ctx.canvas.height);
+          ctx.beginPath();
+          ctx.arc(tx, ty, 8, 0, Math.PI*2);
+          ctx.strokeStyle = 'cyan';
+          ctx.lineWidth   = 2;
+          ctx.stroke();
+        }
+
+        // check user wrist vs next target
+        const target = this._pointQueue[0][LEFT_WRIST];
+        const [ tx, ty ] = this._toPixelCoords(target, ctx.canvas.width, ctx.canvas.height);
+        const userRel = nk[LEFT_WRIST];
+        const [ ux, uy ] = this._toPixelCoords(
+          [ userRel[0] + hip[0], userRel[1] + hip[1] ],
+          ctx.canvas.width, ctx.canvas.height
+        );
+
+        if (Math.hypot(tx-ux, ty-uy) <= 40) {
+          this._pointQueue.shift();
+        }
+
+        const done    = this._originalLength - this._pointQueue.length;
+        const ratio   = done / this._originalLength;
+        pathGood = ratio >= 0.85;
+
+        if (pathGood) {
+          // clear for next segment
+          this._pointQueue = [];
+          this._queueSegmentIdx = null;
+        }
+      }
     }
+
+    // finalize and return
+    this.controller.frame = ctxAfterPosture;
+    if (postureGood && !pathGood) {
+        console.log("transition path was not successfull");
+        printTextOnFrame(ctx, "TRANSITION TOO FAST")
+        return [ phase, true ];
+    }
+
+    const success = postureGood && pathGood;
+
+    // extra safety reset
+    if (elapsedMs >= this.transitionTimeout) {
+      this.controller.currentSegmentIdx = 0;
+    }
+
+    return [ phase, success ];
+  }
+
+  _toPixelCoords(point, width, height) {
+    const x = point.x != null ? point.x : (point[0] != null ? point[0] : 0);
+    const y = point.y != null ? point.y : (point[1] != null ? point[1] : 0);
+    return [ x * width, y * height ];
+  }
 }
+
+
 
 /**
  * HoldingPhase
@@ -224,8 +309,9 @@ export class HoldingPhase extends BasePhase {
         this.successDuration = 0;
         this.minHoldDuration = 0;
         this.completedHold = false;
-        this.exitThresholdMultiplier = 1.1;
+        this.exitThresholdMultiplier = 0.8;
         this.leavePoseTime = null;     
+        this.doneonce = false;
     }
     /**
      * Reset timers and state between holds.
@@ -236,6 +322,7 @@ export class HoldingPhase extends BasePhase {
         this.successDuration = 0;
         this.completedHold   = false;
         this.leavePoseTime   = null;
+        this.doneonce = false;
     }
     
     /**
@@ -284,6 +371,8 @@ export class HoldingPhase extends BasePhase {
             this.controller.frame = ctx;
             // Compute overall DTW on the whole pose for guidance
             const { dtwDistance: dtwWhole } = calculateDtwScore(idealKeypoints, this.controller.normalizedKeypoints);
+            const { dtwHands: dtwHands } = calculateDtwScore(idealKeypoints, this.controller.normalizedKeypoints);
+            
             const exitThreshold = this.thresholds[0] * this.exitThresholdMultiplier;
             // 4) Handle early abandonment: if user breaks pose before completion
             if (!success && !this.completedHold) {
@@ -341,12 +430,19 @@ export class HoldingPhase extends BasePhase {
                 if (!this.holdStartTime) this.holdStartTime = currentTime;
                 this.successDuration = currentTime - this.holdStartTime;
                 printTextOnFrame(this.controller.frame, `Holding ${phase} (${this.successDuration.toFixed(1)}s)`, { x: 10, y: 60 }, 'green');
+                if(this.doneonce = false){
+                    for (let i = 0; i < this.thresholds.length; i++) {
+                        this.thresholds[i] *= this.exitThresholdMultiplier;
+                    }
+                    this.doneonce = true;
+                }
+                
                 if (this.successDuration >= this.minHoldDuration && !this.completedHold) {
                     this.completedHold = true;
                     printTextOnFrame(this.controller.frame, 'Hold completed, stay or adjust to exit', { x: 10, y: 90 }, 'green');
                 }
             } else {
-                if (this.completedHold && dtwWhole > exitThreshold) {
+                if (this.completedHold && !success) {
                     const phaseName = phase.split('_')[1] || phase;
                     printTextOnFrame(this.controller.frame, `${phaseName} completed, exiting hold (DTW: ${dtwWhole.toFixed(2)})`, { x: 10, y: 60 }, 'green');
                     console.log('Holding phase completed');
