@@ -37,7 +37,7 @@ pose.onResults(onResults);
 // Define the exercise plan: mapping exercise names to keypoint JSON & target reps
 const exercisePlan = {
     "Anuvittasana": {
-        "json_path": "assets/Avuvittasana_female_video_keypoints.json",
+        "json_path": "./assets/Avuvittasana_female_video_keypoints.json",
         "reps": 3
     }
 };

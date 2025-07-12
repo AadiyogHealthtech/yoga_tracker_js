@@ -1,5 +1,71 @@
 
 import { drawDtwScores, printTextOnFrame } from '../utils/camera_utils.js';
+
+/**
+ * Given a hip point and a target joint, compute both the raw and unit direction vectors.
+ * @param {[number,number]} hip     – [x,y] (normalized or pixel)
+ * @param {[number,number]} joint   – [x,y] (same space as hip)
+ * @returns {{ raw: [number,number], unit: [number,number], length: number }}
+ */
+function getDirectionVector(hip, joint) {
+  const dx = joint[0] - hip[0];
+  const dy = joint[1] - hip[1];
+  const length = Math.hypot(dx, dy);
+  return {
+    raw:  [dx, dy],
+    unit: length > 0 ? [dx/length, dy/length] : [0,0],
+    length
+  };
+}
+
+/**
+ * Compute the “corrected” ideal keypoint—re‑scaled so that
+ * its distance from the hip matches the user’s. Returns both
+ * normalized coords and pixel coords.
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {number} idx                         – keypoint index (e.g. 15 for left wrist)
+ * @param {Array<[number,number]>} idealKps    – array of normalized “ideal” keypoints
+ * @param {Array<[number,number]>} userKps     – array of normalized user keypoints
+ * @param {[number,number]} hipPoint           – [x,y] in normalized space
+ * @returns {{ norm: [number,number], pix: [number,number] }}
+ */
+function getScaledIdealKeypoint(ctx, idx, idealKps, userKps, hipPoint) {
+  const width  = ctx.canvas.width;
+  const height = ctx.canvas.height;
+
+  // 1) Get direction+distance from hip → user joint
+  const userDir  = getDirectionVector(hipPoint, userKps[idx]);
+  // 2) Get direction+distance from hip → ideal joint
+  const idealDir = getDirectionVector(hipPoint, idealKps[idx]);
+
+  // 3) Compute scale so idealDist → userDist
+  const scale = userDir.length / (idealDir.length || 1);
+
+  // 4) Scale the ideal vector
+  const scaledRaw = [
+    idealDir.raw[0] * scale,
+    idealDir.raw[1] * scale
+  ];
+
+  // 5) Reconstruct corrected ideal in normalized space
+  const correctedNorm = [
+    hipPoint[0] + scaledRaw[0],
+    hipPoint[1] + scaledRaw[1]
+  ];
+
+  // 6) Convert to pixel coords
+  const correctedPix = [
+    correctedNorm[0] * width,
+    correctedNorm[1] * height
+  ];
+
+  return {
+    norm: correctedNorm,
+    pix:  correctedPix
+  };
+}
+
 function calculateDtwScore(p1, p2){
     if (!Array.isArray(p1[0])) p1 = [p1];
     if (!Array.isArray(p2[0])) p2 = [p2];
@@ -48,7 +114,7 @@ export function checkPoseSuccess(idealKeypoints, normalizedKeypoints, thresholds
   }
   console.log("No of success points:", underThresholdCount);
   // success if at least 8 of the 10 keypoints are "close enough"
-  return underThresholdCount >= 8;
+  return underThresholdCount > 9;
 }
 
 
@@ -65,7 +131,7 @@ function calculateEuclideanDistance(p1, p2) {
   return Math.hypot(dx, dy);
 }
 
-export function checkBendback(ctx, idealKeypoints, normalizedKeypoints, hipPoint, thresholds) {
+export function checkBendback(ctx, idealKeypoints, normalizedKeypoints, hipPoint, thresholds, curr_phase = null) {
     if (!normalizedKeypoints) {
         printTextOnFrame(ctx, 'Keypoints not detected', { x: 50, y: 50 }, 'red');
         return [ctx, false];
@@ -162,37 +228,63 @@ export function checkBendback(ctx, idealKeypoints, normalizedKeypoints, hipPoint
           `Index ${idx} — User pixel: (${userPix[0].toFixed(1)}, ${userPix[1].toFixed(1)})`,
           `Ideal pixel: (${idealPix[0].toFixed(1)}, ${idealPix[1].toFixed(1)})`
       );
+      if(curr_phase == null){
+        // 1) compute the correctly scaled ideal pixel:
+        const { pix: idealPix } = getScaledIdealKeypoint(
+          ctx,
+          idx,
+          idealKeypoints,
+          normalizedKeypoints,
+          hipPoint
+        );
 
-      // (optional) draw guidance circle + arrow for each joint:
-      const DistPix = calculateEuclideanDistance(hipPix, idealPix);
-      const radius  = thresholds[idx] * DistPix;  
-      ctx.beginPath();
-      ctx.arc(idealPix[0], idealPix[1], radius, 0, Math.PI*2);
-      ctx.strokeStyle = "#FF0000";
-      ctx.lineWidth   = 2;
-      ctx.stroke();
-      // arrow
-      ctx.beginPath();
-      ctx.moveTo(userPix[0], userPix[1]);
-      ctx.lineTo(idealPix[0], idealPix[1]);
-      ctx.strokeStyle = "yellow";
-      ctx.lineWidth   = 3;
-      ctx.stroke();
-      // arrowhead
-      const angle     = Math.atan2(idealPix[1]-userPix[1], idealPix[0]-userPix[0]);
-      const arrowSize = 10;
-      ctx.beginPath();
-      ctx.moveTo(idealPix[0], idealPix[1]);
-      ctx.lineTo(
-          idealPix[0] - arrowSize*Math.cos(angle + Math.PI/6),
-          idealPix[1] - arrowSize*Math.sin(angle + Math.PI/6)
-      );
-      ctx.moveTo(idealPix[0], idealPix[1]);
-      ctx.lineTo(
-          idealPix[0] - arrowSize*Math.cos(angle - Math.PI/6),
-          idealPix[1] - arrowSize*Math.sin(angle - Math.PI/6)
-      );
-      ctx.stroke();
+        // 2) compute the user’s pixel
+        const userNorm = [
+          normalizedKeypoints[idx][0] + hipPoint[0],
+          normalizedKeypoints[idx][1] + hipPoint[1]
+        ];
+        const userPix = [
+          userNorm[0] * ctx.canvas.width,
+          userNorm[1] * ctx.canvas.height
+        ];
+
+        // now your existing drawing code:
+        //
+        // draw the circle:
+        const DistPix = calculateEuclideanDistance(hipPix, idealPix);
+        const radius  = thresholds[idx] * DistPix;
+        ctx.beginPath();
+        ctx.arc(idealPix[0], idealPix[1], radius, 0, Math.PI*2);
+        ctx.strokeStyle = "#FF0000";
+        ctx.lineWidth   = 2;
+        ctx.stroke();
+
+        // draw the arrow:
+        ctx.beginPath();
+        ctx.moveTo(userPix[0], userPix[1]);
+        ctx.lineTo(idealPix[0], idealPix[1]);
+        ctx.strokeStyle = "yellow";
+        ctx.lineWidth   = 3;
+        ctx.stroke();
+
+        // draw the arrowhead:
+        const angle     = Math.atan2(idealPix[1] - userPix[1], idealPix[0] - userPix[0]);
+        const arrowSize = 10;
+        ctx.beginPath();
+        ctx.moveTo(idealPix[0], idealPix[1]);
+        ctx.lineTo(
+          idealPix[0] - arrowSize * Math.cos(angle + Math.PI/6),
+          idealPix[1] - arrowSize * Math.sin(angle + Math.PI/6)
+        );
+        ctx.moveTo(idealPix[0], idealPix[1]);
+        ctx.lineTo(
+          idealPix[0] - arrowSize * Math.cos(angle - Math.PI/6),
+          idealPix[1] - arrowSize * Math.sin(angle - Math.PI/6)
+        );
+        ctx.stroke();
+
+      }
+      
     });
 
     const success = checkPoseSuccess(idealKeypoints, normalizedKeypoints, thresholds_new);

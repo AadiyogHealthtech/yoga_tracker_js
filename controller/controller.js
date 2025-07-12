@@ -28,7 +28,7 @@ export class Controller {
         // Canvas/frame references (injected each frame)
         this.frame = null;                   
         this.results = null;                 // Latest MediaPipe results
-
+        this.reset_phase = true;
         // Store the full exercise plan and initialize pointers
         this.exercisePlan = exercisePlan;    
         this.currentExerciseIdx = 0;         // Index into the list of exercises
@@ -100,15 +100,19 @@ export class Controller {
         // Iterate over each segment definition loaded from the JSON
         this.segments.forEach((segment, i) => {
             // Extract identifying properties from the segment
-            const phase = segment.phase;
-            const phaseType = segment.type;
+            console.log("Here is the segment in intialiser : ", segment);
+            const {
+                phase,
+                type: phaseType,
+                facing: startFacing,
+    
+            } = segment;
             const uniqueKey = `${phase}_${i}`;
-            const startFacing = segment.facing;
             // Choose and instantiate the correct handler class based on segment type
             if (phaseType === 'starting') {
                 handlers[uniqueKey] = new StartPhase(this, startFacing);
             } else if (phaseType === 'transition') {
-                handlers[uniqueKey] = new TransitionPhase(this , startFacing); // Pass facing
+                handlers[uniqueKey] = new TransitionPhase(this , startFacing, this.transitionAnalyzer); // Pass facing
             } else if (phaseType === 'holding') {
                 // HoldingPhase receives threshold parameters to determine hold duration
                 
@@ -301,7 +305,7 @@ export class Controller {
         const elapsed = currentTime - this.lastValidPoseTime;
 
         // If we haven’t seen a full-body pose in 5s → relax
-        if (!this.landmarks && elapsed > this.relaxationThreshold*1000) {
+        if (!this.landmarks && elapsed > this.relaxationThreshold) {
             return true;
         }
 
@@ -503,15 +507,31 @@ export class Controller {
     getIdealKeypoints(phase) {
         const segment = this.segments[this.currentSegmentIdx];
         if (segment.phase === phase) {
-            const middle = Math.floor((segment.start + segment.end) / 2);
-            return this.yoga.getIdealKeypoints(middle, middle + 1)[0] || [];
+            const representativeFrame = segment.RepresentativeFrame;
+            console.log("New representative frme no is : ", representativeFrame);
+            console.log("New representative frme is : ", this.yoga.getIdealKeypoints(representativeFrame, representativeFrame + 1)[0] || []);
+        
+            return this.yoga.getIdealKeypoints(representativeFrame, representativeFrame + 1)[0] || [];
         }
         return [];
     }
+    getPrevIdealKeypoints(phaseIndex) {
+        const segment = this.segments[[phaseIndex]];
+        if(!segment) return [];
+        const representativeFrame = segment.RepresentativeFrame;
+        console.log("New representative frme no is : ", representativeFrame);
+        console.log("New representative frme is : ", this.yoga.getIdealKeypoints(representativeFrame, representativeFrame + 1)[0] || []);
+    
+        return this.yoga.getIdealKeypoints(representativeFrame, representativeFrame + 1)[0] || [];
+    }
     getNextIdealKeypoints(phase, segmentidx){
         const segment = this.segments[segmentidx];
-        const middle = Math.floor((segment.start + segment.end) / 2);
-        return this.yoga.getIdealKeypoints(middle, middle + 1)[0] || [];
+        console.log("The segment is : ", segment);
+        const representativeFrame = segment.RepresentativeFrame;
+        console.log("New representative frme no is : ", representativeFrame);
+        console.log("New representative frme is : ", this.yoga.getIdealKeypoints(representativeFrame, representativeFrame + 1)[0] || []);
+        
+        return this.yoga.getIdealKeypoints(representativeFrame, representativeFrame + 1)[0] || [];
         
     }
 

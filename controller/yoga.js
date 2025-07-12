@@ -99,7 +99,8 @@ export class YogaDataExtractor {
                     phase: s[2],
                     thresholds: s[3],
                     facing: detectFacing(keypointsFrame),
-                    type: s[2].split('_')[0]
+                    type: s[2].split('_')[0],
+                    RepresentativeFrame: s[5].representativeFrame
                 };
                 console.log(`Created segment: ${segment.phase}`);
                 return segment;
