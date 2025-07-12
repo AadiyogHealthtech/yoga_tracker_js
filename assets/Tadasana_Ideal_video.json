@@ -43,7 +43,7 @@
       ],
       "up",
       {
-        "representativeFrame": 25
+        "representativeFrame": 24
       }
     ],
     [
@@ -87,7 +87,7 @@
       ],
       "up",
       {
-        "representativeFrame": 83
+        "representativeFrame": 73
       }
     ],
     [
@@ -131,7 +131,7 @@
       ],
       "down",
       {
-        "representativeFrame": 221
+        "representativeFrame": 113
       }
     ],
     [
@@ -175,7 +175,7 @@
       ],
       "down",
       {
-        "representativeFrame": 271
+        "representativeFrame": 181
       }
     ],
     [
@@ -219,7 +219,7 @@
       ],
       "front",
       {
-        "representativeFrame": 473
+        "representativeFrame": 238
       }
     ],
     [
@@ -263,7 +263,7 @@
       ],
       "front",
       {
-        "representativeFrame": 524
+        "representativeFrame": 327
       }
     ],
     [
@@ -307,7 +307,7 @@
       ],
       "up",
       {
-        "representativeFrame": 777
+        "representativeFrame": 388
       }
     ]
   ],

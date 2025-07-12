@@ -1749,9 +1749,8 @@ function exportAsJson() {
     let startFrame, endFrame;
 
     if (pr) {
-      startFrame = lastframe + 1;
-      endFrame = lastframe + Math.round((pr.maxSec - pr.minSec) * frameRate);
-      lastframe = endFrame;
+      startFrame = Math.round(pr.minSec * frameRate);
+      endFrame = Math.round(pr.maxSec * frameRate);
     } else {
       startFrame = seg.frameIndex;
       endFrame = seg.frameIndex;
@@ -1763,32 +1762,29 @@ function exportAsJson() {
 
     // Calculate distances for all keypoints relative to their respective hips
     const NUM_KEYPOINTS = 33;
-	const leftHipIdx    = BODY_PARTS.leftHip;
-	const thresholds    = seg.thresholds || {};
+    const leftHipIdx = BODY_PARTS.leftHip;
+    const thresholds = seg.thresholds || {};
 
-	// 1. start with a zero‐filled array of length 33
-	const radiiArray = new Array(NUM_KEYPOINTS).fill(0);
+    // 1. start with a zero-filled array of length 33
+    const radiiArray = new Array(NUM_KEYPOINTS).fill(0);
 
-	// 2. for each user threshold, look up its keypoint index & compute normalized value
-	for (const [kpName, rawThresh] of Object.entries(thresholds)) {
-	const kpIndex = BODY_PARTS[kpName];
-	if (kpIndex === undefined) continue;           // ignore unknown names
+    // 2. for each user threshold, look up its keypoint index & compute normalized value
+    for (const [kpName, rawThresh] of Object.entries(thresholds)) {
+      const kpIndex = BODY_PARTS[kpName];
+      if (kpIndex === undefined) continue; // ignore unknown names
 
-	// compute pixel distance from left hip → this keypoint
-	const dist = calculateEuclideanDistance(
-		frameObj.landmarks,
-		leftHipIdx,
-		kpIndex,
-		imgW,
-		imgH
-	);
+      // compute pixel distance from left hip → this keypoint
+      const dist = calculateEuclideanDistance(
+        frameObj.landmarks,
+        leftHipIdx,
+        kpIndex,
+        imgW,
+        imgH
+      );
 
-	// avoid divide‐by‐zero; put result in the exact slot kpIndex
-	radiiArray[kpIndex] = dist > 0
-		? rawThresh / dist
-		: 0;
-	}
-
+      // avoid divide-by-zero; put result in the exact slot kpIndex
+      radiiArray[kpIndex] = dist > 0 ? rawThresh / dist : 0;
+    }
 
     let direction = "random";
     if (frameObj && Array.isArray(frameObj.landmarks)) {
@@ -1796,49 +1792,52 @@ function exportAsJson() {
     }
     const phase_name = cleanName(seg.phase);
 
-    // Calculate representativeFrame as startFrame + frame number selected in dropdown
-    const representativeFrame = startFrame + seg.frameIndex +1;
-		console.log("lado",startFrame)
-		console.log("bete",seg.frameIndex)
-		return [
-		startFrame,
-		endFrame,
-		phase_name,
-		radiiArray,
-		direction,
-		{ representativeFrame }, // Add the representativeFrame as an object
-		];
-	});
+    // Calculate representativeFrame correctly within phase bounds
+    const phaseFrames = extractedFrames.filter((f) =>
+      f.name.startsWith(seg.phase)
+    );
+    const phaseLocalIndex = phaseFrames.findIndex(
+      (f) => f.time === extractedFrames[seg.frameIndex].time
+    );
+
+    let representativeFrame = startFrame + phaseLocalIndex;
+    representativeFrame = Math.min(representativeFrame, endFrame); // Ensure it doesn't exceed endFrame
+
+    return [
+      startFrame,
+      endFrame,
+      phase_name,
+      radiiArray,
+      direction,
+      { representativeFrame },
+    ];
+  });
 
   // 5) Build "frames" with normalized landmarks
   const exportFrames = extractedFrames.map((frame) => {
-	const result = normalizeKeypoints(frame.landmarks);
-	if (!result) {
-		return frame.landmarks.map(lm =>
-		// raw coords → string with 8 decimals
-		[
-			lm.x.toFixed(8),
-			lm.y.toFixed(8),
-			lm.z.toFixed(8),
-			lm.visibility.toFixed(8)
-		].join(',')
-		);
-	}
+    const result = normalizeKeypoints(frame.landmarks);
+    if (!result) {
+      return frame.landmarks.map((lm) =>
+        // raw coords → string with 8 decimals
+        [
+          lm.x.toFixed(8),
+          lm.y.toFixed(8),
+          lm.z.toFixed(8),
+          lm.visibility.toFixed(8),
+        ].join(",")
+      );
+    }
 
-	const [normalizedCoords] = result;
-	return normalizedCoords.map((pt, idx) => {
-		const vis = frame.landmarks[idx].visibility;
-		const [nx, ny, nz] = pt;
-		// force 8 decimals for x,y,z and visibility
-		return [
-		nx.toFixed(8),
-		ny.toFixed(8),
-		nz.toFixed(8),
-		vis.toFixed(8)
-		].join(',');
-	});
-	});
-
+    const [normalizedCoords] = result;
+    return normalizedCoords.map((pt, idx) => {
+      const vis = frame.landmarks[idx].visibility;
+      const [nx, ny, nz] = pt;
+      // force 8 decimals for x,y,z and visibility
+      return [nx.toFixed(8), ny.toFixed(8), nz.toFixed(8), vis.toFixed(8)].join(
+        ","
+      );
+    });
+  });
 
   // Final JSON structure:
   const dataToSave = {
@@ -1872,7 +1871,6 @@ function exportAsJson() {
     }, 3000);
   }
 }
-
 
 // Export as images
 function exportAsImages() {

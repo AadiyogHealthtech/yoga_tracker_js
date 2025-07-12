@@ -17,6 +17,71 @@ export class TransitionAnalyzer {
         this.transitionPaths = this._createTransitionPaths();
         console.log('Transition paths created:', this.transitionPaths);
     }
+    analyzeTransitionduringphase(ctx, normalizedKeypoints, currentSegmentIdx, hipPoint) {
+        // 1) reset per‐segment queue
+        if (this._queueSegmentIdx !== currentSegmentIdx) {
+            this._queueSegmentIdx = currentSegmentIdx;
+            this._pointQueue = [];
+
+            // find the active transition path
+            const path = this.transitionPaths.find(p =>
+                currentSegmentIdx > p.startSegmentIdx && currentSegmentIdx < p.endSegmentIdx
+            );
+            if (!path) return [ctx, true];
+
+            // grab the “ideal” frames & joints we care about
+            const idealFrames = this.yoga.getIdealKeypoints(path.startFrame, path.endFrame);
+            const joints = [11,12,13,14,15,16,25,26,27,28];
+
+            // enqueue every joint (with hip offset)
+            for (const frame of idealFrames) {
+                for (const idx of joints) {
+                    const rel = frame[idx];
+                    this._pointQueue.push([
+                        rel[0] + hipPoint[0],
+                        rel[1] + hipPoint[1]
+                    ]);
+                }
+            }
+            this._originalLength = this._pointQueue.length;
+        }
+
+        if (!this._pointQueue.length) return [ctx, true];
+
+        // pick the next target
+        const target = this._pointQueue[0];
+        const [tx, ty] = this._toPixelCoords(target, ctx.canvas.width, ctx.canvas.height);
+
+        // determine which joint this is in the sequence
+        const done       = this._pointQueue.length;
+        const joints     = [11,12,13,14,15,16,25,26,27,28];
+        const jointIdx   = joints[(this._originalLength - done) % joints.length];
+
+        // ---- DRAW ONLY WRISTS (15 & 16) ----
+        if (jointIdx === 15 || jointIdx === 16) {
+            ctx.beginPath();
+            ctx.arc(tx, ty, 8, 0, Math.PI * 2);
+            ctx.strokeStyle = 'cyan';
+            ctx.lineWidth   = 2;
+            ctx.stroke();
+        }
+
+        // compare user → same hip‐relative offset
+        const userRel = normalizedKeypoints[jointIdx];
+        const [ux, uy] = this._toPixelCoords(
+            [ userRel[0] + hipPoint[0], userRel[1] + hipPoint[1] ],
+            ctx.canvas.width,
+            ctx.canvas.height
+        );
+
+        // if the user’s joint is close enough → pop this target
+        const dist = Math.hypot(tx - ux, ty - uy);
+        if (dist <= 20) {
+            this._pointQueue.shift();
+        }
+
+        return [ctx, this._pointQueue.length === 0];
+    }
 
     _createTransitionPaths() {
         console.log('Creating transition paths');
@@ -77,8 +142,8 @@ export class TransitionAnalyzer {
         const safeHeight = height || 720;
 
         return [
-            (x + 1) * safeWidth / 2,
-            (y + 1) * safeHeight / 2
+            (x) * safeWidth ,
+            (y) * safeHeight 
         ];
     }
     getTransitionEndTarget(currentSegmentIdx) {
