@@ -1,0 +1,110 @@
+<!--
+  Yoga Tracker Frontend (visualizer.html)
+
+  This HTML file provides the user interface for the Yoga Tracker's pose segmentation visualizer.
+  It enables the user to either:
+    • Use their device camera to stream live video.
+    • Upload a prerecorded video file for analysis.
+
+  Key Components:
+    1. Head Section
+       – Meta tags for character encoding and responsive viewport.
+       – Title “Yoga Tracker”.
+       – External CSS link to style.css.
+       – Inline styles to position the video, overlay canvas, and style the source-selection buttons.
+
+    2. Body Section
+       a. Navigation Bar
+          • Logo placeholder “Yoga Tracker”.
+          • Links to Home (index.html) and this visualizer page.
+       b. Main Content
+          • A div (#sourceSelection) containing:
+              – “Use Camera” button (#cameraBtn).
+              – “Upload Video” button (#uploadBtn).
+              – Hidden file input (#videoUploadInput) for video uploads.
+          • A div (#videoContainer) that stacks:
+              – <video> element (#videoElement) for raw camera or uploaded video.
+              – <canvas> element (#outputCanvas) overlay for drawing pose/segmentation results.
+       c. Footer
+          • Simple copyright notice.
+
+    3. Scripts
+       – Loads MediaPipe Pose library from CDN.
+       – Loads main.js (ES module) which:
+           • Listens for camera or upload button clicks.
+           • Captures video frames.
+           • Feeds each frame into MediaPipe Pose for landmark detection and segmentation.
+           • Draws the segmentation mask and/or pose landmarks onto the canvas overlay.
+
+  Workflow:
+    • On “Use Camera” click: requests webcam access, streams to #videoElement.
+    • On “Upload Video” click: triggers file selector, loads chosen video into #videoElement.
+    • main.js hooks into the video stream, processes frames via MediaPipe Pose,
+      and renders output in real time on the canvas.
+
+  This setup cleanly separates presentation (HTML/CSS) from processing logic (main.js).
+-->
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yoga Tracker</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        #videoContainer { position: relative; display: inline-block; }
+        canvas { position: absolute; top: 0; left: 0; }
+        #outputCanvas { z-index: 1; }
+        video { z-index: 0; }
+        #sourceSelection {
+            margin: 20px 0;
+            text-align: center;
+        }
+        .source-btn {
+            padding: 10px 20px;
+            margin: 0 10px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .source-btn:hover {
+            background: #45a049;
+        }
+        #videoUploadInput {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="logo">Yoga Tracker</div>
+        <div class="nav-links">
+            <a href="index.html">Home</a>
+            <a href="visualizer.html">Segmentor Frontend</a>
+        </div>
+    </nav>
+    <main>
+        <div id="sourceSelection">
+            <button id="cameraBtn" class="source-btn">Use Camera</button>
+            <button id="uploadBtn" class="source-btn">Upload Video</button>
+            <input type="file" id="videoUploadInput" accept="video/*">
+        </div>
+        <div id="videoContainer">
+            <video id="videoElement" autoplay playsinline></video>
+            <canvas id="outputCanvas"></canvas>
+        </div>
+    </main>
+
+    <footer>
+        &copy; All rights reserved.
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+    <script type="module" src="main.js"></script>
+</body>
+</html>

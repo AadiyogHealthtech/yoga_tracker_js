@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MediaPipe Pose Extraction</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <style>
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        canvas, img {
+            max-width: 100%;
+            margin: 10px 0;
+        }
+        #result {
+            margin: 20px 0;
+            padding: 10px;
+            border: 1px solid #ccc;
+            width: 100%;
+            min-height: 100px;
+            white-space: pre-wrap;
+        }
+        button {
+            margin: 10px;
+            padding: 8px 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #downloadBtn {
+            background-color: #2196F3;
+        }
+        #downloadBtn:hover {
+            background-color: #0b7dda;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>MediaPipe Pose Extraction</h1>
+        
+        <input type="file" id="imageInput" accept="image/*">
+        <div>
+            <img id="inputImage" style="display: none;">
+            <canvas id="outputCanvas"></canvas>
+        </div>
+        
+        <div>
+            <button id="processBtn">Process Image</button>
+            <button id="downloadBtn" disabled>Download Keypoints</button>
+        </div>
+        
+        <h3>Normalized Keypoints (Relative to Right Hip):</h3>
+        <textarea id="result" readonly></textarea>
+    </div>
+
+    <script>
+        let pose, resultKeypoints;
+        const imageInput = document.getElementById('imageInput');
+        const inputImage = document.getElementById('inputImage');
+        const outputCanvas = document.getElementById('outputCanvas');
+        const ctx = outputCanvas.getContext('2d');
+        const resultArea = document.getElementById('result');
+        const processBtn = document.getElementById('processBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+
+        // Initialize MediaPipe Pose
+        function initPose() {
+            pose = new Pose({
+                locateFile: (file) => {
+                    return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
+                }
+            });
+
+            pose.setOptions({
+                modelComplexity: 2,
+                smoothLandmarks: false,
+                minDetectionConfidence: 0.5,
+                minTrackingConfidence: 0.5
+            });
+
+            pose.onResults(onResults);
+        }
+
+        // Function to normalize keypoints relative to hip
+        function normalizeKeypoints(landmarks) {
+            if (!landmarks || landmarks.length === 0) {
+                return null;
+            }
+            
+            const keypoints = landmarks.map(lm => [lm.x, lm.y, lm.z || 0]);
+            const hip = keypoints[24]; // Right hip (index 24)
+            
+            return keypoints.map(point => [
+                point[0] - hip[0],
+                point[1] - hip[1],
+                point[2] - hip[2]
+            ]);
+        }
+
+        // Handle pose detection results
+        function onResults(results) {
+            // Clear canvas
+            ctx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
+            
+            // Draw the image
+            ctx.drawImage(results.image, 0, 0, outputCanvas.width, outputCanvas.height);
+            
+            // Check if landmarks were detected
+            if (results.poseLandmarks) {
+                // Draw landmarks
+                drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, 
+                    {color: '#00FF00', lineWidth: 2});
+                drawLandmarks(ctx, results.poseLandmarks, 
+                    {color: '#FF0000', lineWidth: 1, radius: 3});
+                
+                // Normalize keypoints
+                const normalizedKeypoints = normalizeKeypoints(results.poseLandmarks);
+                
+                // Format to 8 decimal places
+                resultKeypoints = normalizedKeypoints.map(point => 
+                    point.map(coord => parseFloat(coord.toFixed(8)))
+                );
+                
+                // Display in the result area
+                resultArea.value = JSON.stringify(resultKeypoints, null, 4);
+                downloadBtn.disabled = false;
+            } else {
+                resultArea.value = "No landmarks detected.";
+                downloadBtn.disabled = true;
+            }
+        }
+
+        // Load and process the image
+        async function processImage() {
+            if (!inputImage.src) {
+                alert("Please select an image first.");
+                return;
+            }
+            
+            try {
+                downloadBtn.disabled = true;
+                resultArea.value = "Processing...";
+                
+                // Send image to pose detection
+                await pose.send({image: inputImage});
+            } catch (error) {
+                console.error("Error processing image:", error);
+                resultArea.value = "Error: " + error.message;
+            }
+        }
+
+        // Download keypoints as JSON
+        function downloadKeypoints() {
+            if (!resultKeypoints) {
+                alert("No keypoints available to download.");
+                return;
+            }
+            
+            const dataStr = JSON.stringify(resultKeypoints, null, 4);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            
+            const downloadLink = document.createElement('a');
+            downloadLink.href = URL.createObjectURL(dataBlob);
+            downloadLink.download = 'keypoints.json';
+            downloadLink.click();
+        }
+
+        // Handle image selection
+        imageInput.addEventListener('change', function(e) {
+            if (e.target.files && e.target.files[0]) {
+                const reader = new FileReader();
+                
+                reader.onload = function(event) {
+                    inputImage.src = event.target.result;
+                    
+                    // When image is loaded, set canvas size
+                    inputImage.onload = function() {
+                        outputCanvas.width = inputImage.naturalWidth;
+                        outputCanvas.height = inputImage.naturalHeight;
+                        ctx.drawImage(inputImage, 0, 0);
+                    };
+                };
+                
+                reader.readAsDataURL(e.target.files[0]);
+            }
+        });
+
+        // Event listeners
+        processBtn.addEventListener('click', processImage);
+        downloadBtn.addEventListener('click', downloadKeypoints);
+        
+        // Initialize pose detection on page load
+        document.addEventListener('DOMContentLoaded', initPose);
+    </script>
+</body>
+</html>
