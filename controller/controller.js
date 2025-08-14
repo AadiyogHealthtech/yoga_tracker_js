@@ -424,6 +424,8 @@ export class Controller {
     if (!this.inRelaxation) {
       this.inRelaxation = true;
       this.relaxationEnteredTime = currentTime;
+      // 🎵 AUDIO: Entering relaxation
+      this.audioManager.playPhaseAudio("phase_relaxation");
       console.log("Entering relaxation phase");
     }
     // Create a fresh RelaxationPhase handler for processing this phase
