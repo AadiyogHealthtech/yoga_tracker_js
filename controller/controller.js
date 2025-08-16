@@ -1,4 +1,4 @@
-
+console.log('Loading controller.js');
 import { StartPhase, TransitionPhase, HoldingPhase, EndingPhase, RelaxationPhase } from './phase_handlers.js';
 
 import { normalizeKeypoints, detectFacing, checkKeypointVisibility, calculateDtwScore, calculateEuclideanDistance } from '../utils/utils.js';
