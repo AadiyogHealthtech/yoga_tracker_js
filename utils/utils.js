@@ -2,6 +2,24 @@
 import { printTextOnFrame } from './camera_utils.js';
 import fastdtw from './fastDtw.js';
 
+
+export function calculateAngle(a, b, c) {
+  // a, b, c are arrays like [x, y, z, visibility]
+  const AB = { x: a[0] - b[0], y: a[1] - b[1] };
+  const CB = { x: c[0] - b[0], y: c[1] - b[1] };
+
+  // Dot product and magnitude
+  const dot = AB.x * CB.x + AB.y * CB.y;
+  const magAB = Math.sqrt(AB.x * AB.x + AB.y * AB.y);
+  const magCB = Math.sqrt(CB.x * CB.x + CB.y * CB.y);
+
+  // Prevent NaN due to floating point errors
+  let cosine = dot / (magAB * magCB);
+  cosine = Math.min(Math.max(cosine, -1.0), 1.0);
+
+  // Return angle in degrees
+  return Math.acos(cosine) * (180 / Math.PI);
+}
 // In utils/utils.js - Add new function
 export function calculateEuclideanDistance(a, b) {
     if (!a || !b || a.length !== b.length) return Infinity;

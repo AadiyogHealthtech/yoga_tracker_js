@@ -18,7 +18,7 @@ function getDirectionVector(hip, joint) {
   };
 }
 export function getScalingFactor(ctx, idx, idealKps, userKps, hipPoint) {
-  if(userKps == []) return 1;
+ if(userKps == null) return 1;
   const width  = ctx.canvas.width;
   const height = ctx.canvas.height;
 

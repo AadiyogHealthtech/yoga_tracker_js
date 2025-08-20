@@ -7,6 +7,57 @@ import { YogaDataExtractor } from './yoga.js';
 import { TransitionAnalyzer, integrateWithController } from './transition_analysis.js';
 console.log('All controller dependencies imported');
 
+
+class AudioManager {
+    constructor(baseUrl) {
+        this.baseUrl = baseUrl;   // e.g. "http://localhost:1337"
+        this.audioMap = {};       // { errorId: audioUrl }
+        this.audio = new Audio(); // reuse single audio element
+    }
+
+    async loadAudios() {
+        console.log("loadAudios() called ✅");
+        try {
+            const res = await fetch(`${this.baseUrl}/api/tts-dictionaries?populate=*`);
+            console.log("fetch done:", res.status);
+
+            const data = await res.json();
+            console.log("Fetched data:", data);
+
+            data.data.forEach(item => {
+                const { errorId, audio_url, audio } = item; // ⚡ your fields are here, no .attributes
+
+                // Prefer media field
+                if (audio?.url) {
+                    this.audioMap[errorId] = `${this.baseUrl}${audio.url}`;
+                }
+                // fallback: text field
+                else if (audio_url) {
+                    this.audioMap[errorId] = `${this.baseUrl}${audio_url}`;
+                }
+            });
+
+            console.log("Audio map ready:", this.audioMap);
+        } catch (err) {
+            console.error("Failed to fetch audios", err);
+        }
+    }
+
+    play(errorId) {
+        const audioSrc = this.audioMap[errorId];
+        if (!audioSrc) {
+            console.warn("No audio found for errorId:", errorId);
+            return;
+        }
+
+        this.audio.src = audioSrc;
+        this.audio.play().catch(err => {
+            console.warn("Audio play interrupted:", err);
+        });
+    }
+}
+
+
 export class Controller {
     /**
      * Controller class constructor.
@@ -72,6 +123,9 @@ export class Controller {
 
         // Analyzer to examine transitions between segments for correctness
         this.transitionAnalyzer = new TransitionAnalyzer(this.jsonPath, this.currentExercise);
+
+        this.audioManager = new AudioManager("http://localhost:1337"); // Strapi base URL
+
     }
     /**
     * Asynchronously load exercise data, initialize segments, phase handlers, and integrate transition analysis.
@@ -90,6 +144,8 @@ export class Controller {
         console.log('Phase handlers initialized:', Object.keys(this.phaseHandlers));
         integrateWithController(this, this.transitionAnalyzer);
         console.log('Transition analyzer integrated');
+        
+        await this.audioManager.loadAudios();
     }
     /**
      * Build and return an object mapping each segment to its corresponding phase handler instance.
@@ -164,6 +220,7 @@ export class Controller {
         // If no landmarks detected, warn once and clear stored keypoints
         if (!results.poseLandmarks || results.poseLandmarks.length === 0) {
             if (!this.lostPoseWarned) {
+                this.audioManager.play("REST_001");
                 console.warn('No pose landmarks detected (first warning)');
                 this.lostPoseWarned = true;
             }
@@ -462,11 +519,13 @@ export class Controller {
         // Phase transition logic
         if (completed) {
             if (currentSegment.type === 'starting') {
+                this.audioManager.play("START_001");
                 // Starting phase completed, move to transition
                 this.currentSegmentIdx++;
                 this.startTime = currentTime;
             } 
             else if (currentSegment.type === 'transition') {
+                this.audioManager.play("TRANSITION_001");
                 // Transition phase timeout handling
                 if (currentTime - this.startTime > 10000) { // 10 second timeout
                     this.currentSegmentIdx = 0; // Back to relaxation
@@ -477,6 +536,7 @@ export class Controller {
                 }
             }
             else if (currentSegment.type === 'holding') {
+                 this.audioManager.play("HOLD_001");
                 // Start monitoring for abandonment
                 const newIdx = this.currentSegmentIdx + 1;
                 this.currentSegmentIdx = newIdx;
@@ -488,6 +548,7 @@ export class Controller {
                 }
             }
             else if (currentSegment.type === 'ending') {
+                this.audioManager.play("END_001");
                 // Rep completion logic
                 this.handleRepCompletion(currentTime);
                 this.currentSegmentIdx = this.relaxationSegmentIdx;
