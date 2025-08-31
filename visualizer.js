@@ -359,11 +359,9 @@ function updateSegmentsList() {
 function analyzeSegment(segment) {
   const frame = extractedFrames[segment.frameIndex];
 
-  // Initialize thresholds if they don't exist with default keypoints
+  // Initialize thresholds if they don't exist
   if (!segment.thresholds) {
     segment.thresholds = {};
-
-    // Add default thresholds (shoulders, elbows, hips, knees)
     const defaultParts = [
       "leftShoulder",
       "rightShoulder",
@@ -374,34 +372,29 @@ function analyzeSegment(segment) {
       "leftKnee",
       "rightKnee",
     ];
-
-    defaultParts.forEach((part) => {
-      segment.thresholds[part] = 10; // Default threshold value
-    });
+    defaultParts.forEach((part) => (segment.thresholds[part] = 10));
   }
 
-  // Create or get the analysis container
+  // Create or get analysis container
   const analysisContainer =
     document.getElementById("segmentAnalysisContainer") ||
     createAnalysisContainer();
-  analysisContainer.innerHTML = ""; // Clear previous analysis
+  analysisContainer.innerHTML = "";
 
-  // Create title
+  // Title
   const title = document.createElement("h3");
   title.textContent = `${segment.phase} Analysis - ${
     frame.name
   } Frame (${frame.time.toFixed(2)}s)`;
   analysisContainer.appendChild(title);
 
-  // Create canvas container
+  // Canvas
   const canvasContainer = document.createElement("div");
   canvasContainer.className = "analysis-canvas-container";
-
   const canvas = document.createElement("canvas");
   canvas.className = "analysis-canvas";
   canvas.width = 800;
   canvas.height = (800 / frame.width) * frame.height;
-
   const ctx = canvas.getContext("2d");
   const img = new Image();
   img.onload = () => {
@@ -416,19 +409,16 @@ function analyzeSegment(segment) {
     );
   };
   img.src = frame.imageData;
-
   canvasContainer.appendChild(canvas);
   analysisContainer.appendChild(canvasContainer);
 
-  // Add keypoint selection dropdown and buttons
+  // Keypoint controls
   const keypointControls = document.createElement("div");
   keypointControls.className = "keypoint-controls";
   keypointControls.style.marginTop = "20px";
 
   const keypointSelect = document.createElement("select");
   keypointSelect.id = `segment-${segment.id}-keypoint-select`;
-
-  // Add all landmarks not already in thresholds to dropdown
   Object.keys(BODY_PARTS).forEach((part) => {
     if (!segment.thresholds[part]) {
       const option = document.createElement("option");
@@ -438,21 +428,17 @@ function analyzeSegment(segment) {
     }
   });
 
-  // Add "Add All" button
   const addAllBtn = document.createElement("button");
   addAllBtn.className = "btn secondary";
   addAllBtn.textContent = "Add All Keypoints";
   addAllBtn.onclick = () => {
     Object.keys(BODY_PARTS).forEach((part) => {
-      if (!segment.thresholds[part]) {
-        segment.thresholds[part] = 10; // Default value
-      }
+      if (!segment.thresholds[part]) segment.thresholds[part] = 10;
     });
-    updateThresholdControls(segment, controlsDiv);
+    updateControlsWithTickMark(segment, controlsDiv);
     redrawAnalysisCanvas(canvas, img, frame, segment);
-	  keypointSelect.innerHTML = ""; 
-	  updateExportButtonState();
-    updateTickMarkVisibility(segment); // Update tick mark after adding all
+    keypointSelect.innerHTML = "";
+    updateExportButtonState();
   };
 
   const addKeypointBtn = document.createElement("button");
@@ -461,13 +447,11 @@ function analyzeSegment(segment) {
   addKeypointBtn.onclick = () => {
     const selectedPart = keypointSelect.value;
     if (!segment.thresholds[selectedPart]) {
-      segment.thresholds[selectedPart] = 10; // Default value
-      updateThresholdControls(segment, controlsDiv);
+      segment.thresholds[selectedPart] = 10;
+      updateControlsWithTickMark(segment, controlsDiv);
       redrawAnalysisCanvas(canvas, img, frame, segment);
-      // Remove from dropdown
       keypointSelect.querySelector(`option[value="${selectedPart}"]`)?.remove();
-	  updateExportButtonState();
-		//   updateTickMarkVisibility(segment); // Update tick mark after adding
+      updateExportButtonState();
     }
   };
 
@@ -482,44 +466,118 @@ function analyzeSegment(segment) {
   controlsDiv.style.marginTop = "20px";
   analysisContainer.appendChild(controlsDiv);
 
-  // Function to update tick mark visibility
+  // Tick mark updater
   const updateTickMarkVisibility = () => {
     const tickMark = document.getElementById(`tick-${segment.id}`);
     if (tickMark) {
       const hasThresholds =
         segment.thresholds && Object.keys(segment.thresholds).length > 0;
-      if (hasThresholds) {
-        tickMark.classList.add("visible");
-      } else {
-        tickMark.classList.remove("visible");
-      }
+      tickMark.classList.toggle("visible", hasThresholds);
       updateExportButtonState();
     }
   };
 
-  // Custom callback for updateThresholdControls to include tick mark updates
   const updateControlsWithTickMark = (segment, container) => {
     updateThresholdControls(segment, container);
-
-    // Get the master slider after it's created
     const masterSlider = container.querySelector(".master-slider");
-    if (masterSlider) {
+    if (masterSlider)
       masterSlider.addEventListener("input", updateTickMarkVisibility);
-    }
-
-    // Add event listeners to all remove buttons
     container.querySelectorAll(".remove-threshold").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        // Use setTimeout to ensure the threshold is removed before checking
-        setTimeout(updateTickMarkVisibility, 0);
-      });
+      btn.addEventListener("click", () =>
+        setTimeout(updateTickMarkVisibility, 0)
+      );
     });
   };
-
-  // Populate controls with our enhanced version
   updateControlsWithTickMark(segment, controlsDiv);
 
-  // Add close button
+  // -------- ANGLE CONTROLS --------
+  const angleControls = document.createElement("div");
+  angleControls.className = "angle-controls";
+  angleControls.style.marginTop = "20px";
+  angleControls.innerHTML = `<h4>Angle Settings</h4><p>Adjust acceptable angle ranges for this segment</p>`;
+
+  const anglePoints = [
+    { id: "leftElbow", label: "Left Elbow" },
+    { id: "rightElbow", label: "Right Elbow" },
+    { id: "leftShoulder", label: "Left Shoulder" },
+    { id: "rightShoulder", label: "Right Shoulder" },
+    { id: "leftHip", label: "Left Hip" },
+    { id: "rightHip", label: "Right Hip" },
+    { id: "leftKnee", label: "Left Knee" },
+    { id: "rightKnee", label: "Right Knee" },
+  ];
+
+  if (!segment.angles) {
+    segment.angles = {};
+    anglePoints.forEach((p) => {
+      segment.angles[p.id] = {
+        min: 0,
+        max: 45,
+        current: extractedFrames[segment.frameIndex].angles[p.id] || 0,
+      };
+    });
+  }
+
+  anglePoints.forEach((p) => {
+    const angleRow = document.createElement("div");
+    angleRow.className = "angle-row";
+    const currentAngle = extractedFrames[segment.frameIndex].angles[p.id] || 0;
+    angleRow.innerHTML = `
+      <label class="angle-label">${p.label}:</label>
+      <span class="current-angle">Current: ${currentAngle.toFixed(1)}°</span>
+      <div class="angle-range">
+        <input type="range" class="angle-min" min="0" max="180" value="${
+          segment.angles[p.id].min
+        }" 
+          data-angle="${p.id}" data-type="min" step="1">
+        <span class="angle-value">${segment.angles[p.id].min}°</span>
+        to
+        <input type="range" class="angle-max" min="0" max="180" value="${
+          segment.angles[p.id].max
+        }" 
+          data-angle="${p.id}" data-type="max" step="1">
+        <span class="angle-value">${segment.angles[p.id].max}°</span>
+      </div>
+    `;
+    angleControls.appendChild(angleRow);
+  });
+
+  analysisContainer.appendChild(angleControls);
+
+  // Angle slider events
+  analysisContainer
+    .querySelectorAll(".angle-min, .angle-max")
+    .forEach((slider) => {
+      slider.addEventListener("input", (e) => {
+        const id = e.target.dataset.angle;
+        const type = e.target.dataset.type;
+        const value = parseInt(e.target.value);
+
+        segment.angles[id][type] = value;
+        const valueSpan = e.target.nextElementSibling;
+        if (valueSpan && valueSpan.classList.contains("angle-value"))
+          valueSpan.textContent = `${value}°`;
+
+        const minSlider = analysisContainer.querySelector(
+          `.angle-min[data-angle="${id}"]`
+        );
+        const maxSlider = analysisContainer.querySelector(
+          `.angle-max[data-angle="${id}"]`
+        );
+
+        if (type === "min" && value > segment.angles[id].max) {
+          segment.angles[id].max = value;
+          maxSlider.value = value;
+          maxSlider.nextElementSibling.textContent = `${value}°`;
+        } else if (type === "max" && value < segment.angles[id].min) {
+          segment.angles[id].min = value;
+          minSlider.value = value;
+          minSlider.nextElementSibling.textContent = `${value}°`;
+        }
+      });
+    });
+
+  // Close button
   const closeBtn = document.createElement("button");
   closeBtn.className = "btn secondary";
   closeBtn.textContent = "Save Thresholds";
@@ -527,16 +585,15 @@ function analyzeSegment(segment) {
   closeBtn.onclick = () => {
     analysisContainer.innerHTML = "";
     analysisContainer.style.display = "none";
-    updateTickMarkVisibility(); // Final update when closing
+    updateTickMarkVisibility();
   };
   analysisContainer.appendChild(closeBtn);
 
-  // Initial update of tick mark
+  // Initial tick mark update
   updateTickMarkVisibility();
-
-  // Show the container
   analysisContainer.style.display = "block";
 }
+
 
 
 function updateThresholdControls(segment, container) {
@@ -1359,36 +1416,135 @@ function seekToTime(time) {
 
 // Capture frame with pose data
 async function captureFrame(name, time) {
-	if (!currentPoseLandmarks) return null;
+  if (!currentPoseLandmarks) return null;
 
-	// Create canvas for frame capture
-	const canvas = document.createElement('canvas');
-	const ctx = canvas.getContext('2d');
-	canvas.width = videoPlayer.videoWidth;
-	canvas.height = videoPlayer.videoHeight;
+  // Create canvas for frame capture
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  canvas.width = videoPlayer.videoWidth;
+  canvas.height = videoPlayer.videoHeight;
 
-	// Draw video frame
-	ctx.drawImage(videoPlayer, 0, 0, canvas.width, canvas.height);
+  // Draw video frame
+  ctx.drawImage(videoPlayer, 0, 0, canvas.width, canvas.height);
 
-	// Get image data
-	const imageData = canvas.toDataURL('image/jpeg', 0.9);
+  // Get image data
+  const imageData = canvas.toDataURL("image/jpeg", 0.9);
 
-	// Process landmarks
-	const landmarks = currentPoseLandmarks.map((lm) => ({
-		x: lm.x,
-		y: lm.y,
-		z: lm.z,
-		visibility: lm.visibility
-	}));
+  // Process landmarks
+  const landmarks = currentPoseLandmarks.map((lm) => ({
+    x: lm.x,
+    y: lm.y,
+    z: lm.z,
+    visibility: lm.visibility,
+  }));
+  // Calculate angles for the 8 key points
+  const angles = calculateAllAngles(landmarks);
+  return {
+    name: name,
+    time: time,
+    imageData: imageData,
+    landmarks: landmarks,
+    angles: angles,
+    width: canvas.width,
+    height: canvas.height,
+  };
+}
 
-	return {
-		name: name,
-		time: time,
-		imageData: imageData,
-		landmarks: landmarks,
-		width: canvas.width,
-		height: canvas.height
-	};
+// functions to calculate angles between three points
+function calculateAngle(a, b, c) {
+    const radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
+    let angle = Math.abs(radians * 180.0 / Math.PI);
+    if (angle > 180.0) angle = 360 - angle;
+    return angle;
+}
+
+function calculateAllAngles(landmarks) {
+    const angles = {
+        leftElbow: 0,
+        rightElbow: 0,
+        leftShoulder: 0,
+        rightShoulder: 0,
+        leftHip: 0,
+        rightHip: 0,
+        leftKnee: 0,
+        rightKnee: 0
+    };
+    
+    if (!landmarks || landmarks.length < 33) return angles;
+    
+    try {
+        // Calculate elbow angles
+        if (landmarks[BODY_PARTS.leftWrist] && landmarks[BODY_PARTS.leftElbow] && landmarks[BODY_PARTS.leftShoulder]) {
+            angles.leftElbow = calculateAngle(
+                landmarks[BODY_PARTS.leftWrist],
+                landmarks[BODY_PARTS.leftElbow],
+                landmarks[BODY_PARTS.leftShoulder]
+            );
+        }
+        
+        if (landmarks[BODY_PARTS.rightWrist] && landmarks[BODY_PARTS.rightElbow] && landmarks[BODY_PARTS.rightShoulder]) {
+            angles.rightElbow = calculateAngle(
+                landmarks[BODY_PARTS.rightWrist],
+                landmarks[BODY_PARTS.rightElbow],
+                landmarks[BODY_PARTS.rightShoulder]
+            );
+        }
+        
+        // Calculate shoulder angles
+        if (landmarks[BODY_PARTS.leftElbow] && landmarks[BODY_PARTS.leftShoulder] && landmarks[BODY_PARTS.leftHip]) {
+            angles.leftShoulder = calculateAngle(
+                landmarks[BODY_PARTS.leftElbow],
+                landmarks[BODY_PARTS.leftShoulder],
+                landmarks[BODY_PARTS.leftHip]
+            );
+        }
+        
+        if (landmarks[BODY_PARTS.rightElbow] && landmarks[BODY_PARTS.rightShoulder] && landmarks[BODY_PARTS.rightHip]) {
+            angles.rightShoulder = calculateAngle(
+                landmarks[BODY_PARTS.rightElbow],
+                landmarks[BODY_PARTS.rightShoulder],
+                landmarks[BODY_PARTS.rightHip]
+            );
+        }
+        
+        // Calculate hip angles
+        if (landmarks[BODY_PARTS.leftShoulder] && landmarks[BODY_PARTS.leftHip] && landmarks[BODY_PARTS.leftKnee]) {
+            angles.leftHip = calculateAngle(
+                landmarks[BODY_PARTS.leftShoulder],
+                landmarks[BODY_PARTS.leftHip],
+                landmarks[BODY_PARTS.leftKnee]
+            );
+        }
+        
+        if (landmarks[BODY_PARTS.rightShoulder] && landmarks[BODY_PARTS.rightHip] && landmarks[BODY_PARTS.rightKnee]) {
+            angles.rightHip = calculateAngle(
+                landmarks[BODY_PARTS.rightShoulder],
+                landmarks[BODY_PARTS.rightHip],
+                landmarks[BODY_PARTS.rightKnee]
+            );
+        }
+        
+        // Calculate knee angles
+        if (landmarks[BODY_PARTS.leftHip] && landmarks[BODY_PARTS.leftKnee] && landmarks[BODY_PARTS.leftAnkle]) {
+            angles.leftKnee = calculateAngle(
+                landmarks[BODY_PARTS.leftHip],
+                landmarks[BODY_PARTS.leftKnee],
+                landmarks[BODY_PARTS.leftAnkle]
+            );
+        }
+        
+        if (landmarks[BODY_PARTS.rightHip] && landmarks[BODY_PARTS.rightKnee] && landmarks[BODY_PARTS.rightAnkle]) {
+            angles.rightKnee = calculateAngle(
+                landmarks[BODY_PARTS.rightHip],
+                landmarks[BODY_PARTS.rightKnee],
+                landmarks[BODY_PARTS.rightAnkle]
+            );
+        }
+    } catch (error) {
+        console.error("Error calculating angles:", error);
+    }
+    
+    return angles;
 }
 
 // Display extracted frames
@@ -1408,45 +1564,68 @@ function displayExtractedFrames() {
 	document.getElementById('segmentControls').style.display = 'block';
 }
 
-// Draw pose on specific canvas
-function drawPoseOnCanvas(landmarks, ctx, width, height) {
-	if (!landmarks || landmarks.length === 0) return;
+// Draw pose on specific canvas with optional angle display
+function drawPoseOnCanvas(landmarks, ctx, width, height, angles = null) {
+    if (!landmarks || landmarks.length === 0) return;
 
-	// Save the current context state
-	ctx.save();
+    // Save the current context state
+    ctx.save();
 
-	// Draw connections
-	ctx.strokeStyle = '#00FF00';
-	ctx.lineWidth = 2;
-	ctx.beginPath();
+    // Draw connections
+    ctx.strokeStyle = '#00FF00';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    POSE_CONNECTIONS.forEach(([start, end]) => {
+        const startPoint = landmarks[start];
+        const endPoint = landmarks[end];
+        if (startPoint && endPoint && startPoint.visibility > 0.5 && endPoint.visibility > 0.5) {
+            ctx.moveTo(startPoint.x * width, startPoint.y * height);
+            ctx.lineTo(endPoint.x * width, endPoint.y * height);
+        }
+    });
+    ctx.stroke();
 
-	POSE_CONNECTIONS.forEach(([start, end]) => {
-		const startPoint = landmarks[start];
-		const endPoint = landmarks[end];
+    // Draw landmarks
+    landmarks.forEach(landmark => {
+        if (landmark.visibility > 0.5) {
+            const x = landmark.x * width;
+            const y = landmark.y * height;
+            ctx.fillStyle = '#0000FF';
+            ctx.beginPath();
+            ctx.arc(x, y, 4, 0, 2 * Math.PI);
+            ctx.fill();
+        }
+    });
 
-		if (startPoint && endPoint && startPoint.visibility > 0.5 && endPoint.visibility > 0.5) {
-			ctx.moveTo(startPoint.x * width, startPoint.y * height);
-			ctx.lineTo(endPoint.x * width, endPoint.y * height);
-		}
-	});
-	ctx.stroke();
+    // Display angles if provided
+    if (angles) {
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = '14px Arial';
+        ctx.textAlign = 'center';
 
-	// Draw landmarks
-	landmarks.forEach((landmark, index) => {
-		if (landmark.visibility > 0.5) {
-			const x = landmark.x * width;
-			const y = landmark.y * height;
+        const joints = [
+            {name: 'leftElbow', point: BODY_PARTS.leftElbow},
+            {name: 'rightElbow', point: BODY_PARTS.rightElbow},
+            {name: 'leftShoulder', point: BODY_PARTS.leftShoulder},
+            {name: 'rightShoulder', point: BODY_PARTS.rightShoulder},
+            {name: 'leftHip', point: BODY_PARTS.leftHip},
+            {name: 'rightHip', point: BODY_PARTS.rightHip},
+            {name: 'leftKnee', point: BODY_PARTS.leftKnee},
+            {name: 'rightKnee', point: BODY_PARTS.rightKnee},
+        ];
 
-			ctx.fillStyle = '#0000FF';
-			ctx.beginPath();
-			ctx.arc(x, y, 4, 0, 2 * Math.PI);
-			ctx.fill();
-		}
-	});
+        joints.forEach(j => {
+            if (angles[j.name] && landmarks[j.point]) {
+                const point = landmarks[j.point];
+                ctx.fillText(`${angles[j.name].toFixed(0)}°`, point.x * width, point.y * height - 20);
+            }
+        });
+    }
 
-	// Restore the context state
-	ctx.restore();
+    // Restore context state
+    ctx.restore();
 }
+
 
 // Save frame data
 function saveFrameData() {
@@ -1802,14 +1981,14 @@ function exportAsJson() {
 
     let representativeFrame = startFrame + phaseLocalIndex;
     representativeFrame = Math.min(representativeFrame, endFrame); // Ensure it doesn't exceed endFrame
-
+	const angles = seg.angles || {};
     return [
       startFrame,
       endFrame,
       phase_name,
       radiiArray,
       direction,
-      { representativeFrame },
+      { representativeFrame ,angles: angles },
     ];
   });
 

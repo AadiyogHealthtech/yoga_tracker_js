@@ -780,3 +780,49 @@ nav .nav-links a:hover {
 .arrow.rotate {
     transform: rotate(180deg);
 }
+
+/* Add these styles to your CSS file */
+.angle-controls {
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #F97316;
+    margin-top: 20px;
+}
+
+.angle-row {
+    display: flex;
+    align-items: center;
+    margin: 10px 0;
+    padding: 8px;
+    background: white;
+    border-radius: 4px;
+}
+
+.angle-label {
+    min-width: 120px;
+    font-weight: bold;
+}
+
+.current-angle {
+    min-width: 100px;
+    margin: 0 10px;
+    color: #F97316;
+}
+
+.angle-range {
+    display: flex;
+    align-items: center;
+    flex: 1;
+}
+
+.angle-range input[type="range"] {
+    width: 100px;
+    margin: 0 5px;
+}
+
+.angle-value {
+    min-width: 40px;
+    text-align: center;
+    font-weight: bold;
+}
