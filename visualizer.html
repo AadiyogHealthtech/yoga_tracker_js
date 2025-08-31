@@ -46,26 +46,25 @@
                 <button id="saveFrames" class="btn" disabled>Save Frame Data</button>
             </div>
 
-        <div class="phase-controls">
-    <h3>Phase Selection</h3>
-    <div class="phase-row">
-        <label class="phase-label">Select Phase:</label>
-        <select id="phaseSelect" class="form-control">
-            <option value="">-- Select a phase --</option>
-            <option value="Starting">Starting Phase</option>
-            <option value="Holding1">Holding Phase</option>
-            <option value="Transition">Transition Phase</option>
-            <option value="Ending">Ending Phase</option>
-            <option value="Relaxation">Relaxation Phase</option>
-        </select>
-        <button id="addPhaseBtn" class="btn">Add Phase</button>
-    </div>
-    
+            <div class="phase-controls">
+                <h3>Phase Selection</h3>
+                <div class="phase-row">
+                    <label class="phase-label">Select Phase:</label>
+                    <select id="phaseSelect" class="form-control">
+                        <option value="">-- Select a phase --</option>
+                        <option value="Starting">Starting Phase</option>
+                        <option value="Holding1">Holding Phase</option>
+                        <option value="Transition">Transition Phase</option>
+                        <option value="Ending">Ending Phase</option>
+                        <option value="Relaxation">Relaxation Phase</option>
+                    </select>
+                    <button id="addPhaseBtn" class="btn">Add Phase</button>
+                </div>
 
-    <div id="phaseTimeRanges" class="phase-time-ranges">
-        <!-- Dynamic phase time ranges will be added here -->
-    </div>
-</div>
+                <div id="phaseTimeRanges" class="phase-time-ranges">
+                    <!-- Dynamic phase time ranges will be added here -->
+                </div>
+            </div>
 
             <div id="progressSection" style="display: none;">
                 <div class="progress-bar">
@@ -121,6 +120,6 @@
         </div>
     </div>
 
-   <script src="visualizer.js"></script>
+    <script src="visualizer.js"></script>
 </body>
 </html>
