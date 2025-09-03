@@ -5,7 +5,7 @@
 
 import { Controller } from './controller/controller.js';          // Core logic for exercise segmentation & rep counting
 import { printTextOnFrame } from './utils/camera_utils.js';      // Utility to overlay text on the canvas
-
+import { unlockAudio } from './controller/audioPlayer.js';
 console.log('Starting main.js');
 
 // Grab references to DOM elements
@@ -54,10 +54,25 @@ let lastVideoTime = -1;    // For uploaded videos, avoid reprocessing the same f
 // =======================
 
 // When "Use Camera" clicked: stop any existing source, then start webcam
-cameraBtn.addEventListener('click', () => {
+cameraBtn.addEventListener('click', async() => {           // changed to async
     stopVideoSources();
-    setupCamera();
-    videoSource = 'camera';
+    // setupCamera();
+    // videoSource = 'camera';
+
+    const cameraIsReady = await setupCamera();
+    
+    // Check if the camera setup was successful
+    if (cameraIsReady) {
+        // --- THIS IS THE KEY ---
+        // The camera is now fully running. Unlock the audio immediately after.
+        console.log("Camera is ready, unlocking audio.");
+        unlockAudio();
+        
+        // Set your video source variable
+        videoSource = 'camera';
+    } else {
+        console.error("Camera setup failed. Audio remains locked.");
+    }
 });
 
 // When "Upload Video" clicked: open file selector
@@ -94,24 +109,53 @@ function stopVideoSources() {
 }
 
 // Request access to the webcam and stream into <video>
+// async function setupCamera() {
+//     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+//         console.error('MediaDevices API not supported');
+//         alert('Please use HTTPS and a supported browser');
+//         return;
+//     }
+
+//     try {
+//         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+//         videoElement.srcObject = stream;
+//         videoElement.onloadedmetadata = () => {
+//             initializeVideoProcessing();
+//         };
+//     } catch (error) {
+//         console.error('Camera error:', error);
+//         alert('Camera access denied. Please allow permissions.');
+//     }
+// }
+
+
 async function setupCamera() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         console.error('MediaDevices API not supported');
         alert('Please use HTTPS and a supported browser');
-        return;
+        return false; // Explicitly return false on failure
     }
 
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         videoElement.srcObject = stream;
-        videoElement.onloadedmetadata = () => {
-            initializeVideoProcessing();
-        };
+        
+        // We use a Promise to wait for the video to be truly ready
+        await new Promise((resolve) => {
+            videoElement.onloadedmetadata = () => {
+                initializeVideoProcessing();
+                resolve();
+            };
+        });
+
+        return true; // Explicitly return true on success
     } catch (error) {
         console.error('Camera error:', error);
         alert('Camera access denied. Please allow permissions.');
+        return false; // Explicitly return false on error
     }
 }
+
 
 // Load the uploaded video file into <video> and loop it
 function handleVideoUpload(file) {

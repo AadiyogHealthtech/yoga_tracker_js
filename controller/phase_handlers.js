@@ -20,6 +20,8 @@ import { calculateAngle } from "../utils/utils.js";
  * Provides common properties: reference to the controller, default hold duration,
  * and placeholders for normalized keypoints and hip tracking.
  */
+
+import { validatePose } from "./errorDetection.js";
 export class BasePhase {
   constructor(controller) {
     this.controller = controller;
@@ -228,6 +230,19 @@ export class TransitionPhase extends BasePhase {
       this.controller.scalingFactor,
       "Transition_phase"
     );
+
+    // ✅ Run errorDetection.js validation here
+    if (this.controller.normalizedKeypoints) {
+      const poseValidation = validatePose(
+        this.controller.normalizedKeypoints,
+        "tadasana", // pose to check in transition
+        this.controller.audioManager // pass AudioManager for chimes
+      );
+      if (poseValidation.status === "fail") {
+        console.log("Pose validation failed:", poseValidation);
+        printTextOnFrame(ctx, "Adjust pose...");
+      }
+    }
 
     // 2) path‐following queue logic
     let pathGood = true;
@@ -453,7 +468,6 @@ export class HoldingPhase extends BasePhase {
         const { dtwDistance } = calculateDtwScore(userTrans, idealTrans);
         const color = dtwDistance < 50 ? "green" : "red";
 
-        
         // Overlay the transition DTW score
         printTextOnFrame(
           this.controller.frame,
@@ -478,13 +492,13 @@ export class HoldingPhase extends BasePhase {
       console.log(`Success in holding frame ${success}`);
       this.controller.frame = ctx;
       if (this.controller.normalizedKeypoints != null) {
-          const left_shoulder_angle = calculateAngle(
-            this.controller.normalizedKeypoints[23],
-            this.controller.normalizedKeypoints[11],
-            this.controller.normalizedKeypoints[13]
-          );
-          printTextOnFrame(ctx, left_shoulder_angle);
-        }
+        const left_shoulder_angle = calculateAngle(
+          this.controller.normalizedKeypoints[23],
+          this.controller.normalizedKeypoints[11],
+          this.controller.normalizedKeypoints[13]
+        );
+        printTextOnFrame(ctx, left_shoulder_angle);
+      }
       // Compute overall DTW on the whole pose for guidance
       const { dtwDistance: dtwWhole } = calculateDtwScore(
         idealKeypoints,

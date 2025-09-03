@@ -1,0 +1,35 @@
+{
+  "tadasana": {
+    "requiresFrontFacing": true,
+    "angles": [
+      {
+        "name": "Left Leg Straight",
+        "keypoints": [23, 25, 27],
+        "min": 170,
+        "max": 200,
+        "errorId": "left_leg_error"
+      },
+      {
+        "name": "Right Leg Straight",
+        "keypoints": [24, 26, 28],
+        "min": 170,
+        "max": 200,
+        "errorId": "right_leg_error"
+      },
+      {
+        "name": "Right Arm Straight",
+        "keypoints": [12, 14, 16],
+        "min": 170,
+        "max": 200,
+        "errorId": "right_arm_error"
+      },
+      {
+        "name": "Left Arm Straight",
+        "keypoints": [11, 13, 15],
+        "min": 170,
+        "max": 200,
+        "errorId": "left_arm_error"
+      }
+    ]
+  }
+}

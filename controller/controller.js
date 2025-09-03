@@ -5,6 +5,9 @@ import { normalizeKeypoints, detectFacing, checkKeypointVisibility, calculateDtw
 import { drawPoseSkeleton, printTextOnFrame, drawDtwScores, drawTransitionPath, drawGuidanceArrow } from '../utils/camera_utils.js';
 import { YogaDataExtractor } from './yoga.js';
 import { TransitionAnalyzer, integrateWithController } from './transition_analysis.js';
+import { calculateAngle } from "../utils/utils.js";
+import { validatePose } from "./errorDetection.js"; 
+
 console.log('All controller dependencies imported');
 
 
@@ -25,13 +28,13 @@ class AudioManager {
             console.log("Fetched data:", data);
 
             data.data.forEach(item => {
-                const { errorId, audio_url, audio } = item; // ⚡ your fields are here, no .attributes
+                const { errorId, audio_url, audio } = item; 
 
-                // Prefer media field
+               
                 if (audio?.url) {
                     this.audioMap[errorId] = `${this.baseUrl}${audio.url}`;
                 }
-                // fallback: text field
+               
                 else if (audio_url) {
                     this.audioMap[errorId] = `${this.baseUrl}${audio_url}`;
                 }
@@ -220,7 +223,7 @@ export class Controller {
         // If no landmarks detected, warn once and clear stored keypoints
         if (!results.poseLandmarks || results.poseLandmarks.length === 0) {
             if (!this.lostPoseWarned) {
-                this.audioManager.play("REST_001");
+                // this.audioManager.play("REST_001");
                 console.warn('No pose landmarks detected (first warning)');
                 this.lostPoseWarned = true;
             }
@@ -476,6 +479,7 @@ export class Controller {
                 this.normalizedKeypoints,
                 0.1
             );
+        
         }
 
         // Draw skeleton for non-transitions
@@ -519,14 +523,14 @@ export class Controller {
         // Phase transition logic
         if (completed) {
             if (currentSegment.type === 'starting') {
-                this.audioManager.play("START_001");
+                // this.audioManager.play("START_001");
                 // Starting phase completed, move to transition
                 this.currentSegmentIdx++;
                 this.startTime = currentTime;
             } 
             else if (currentSegment.type === 'transition') {
-                this.audioManager.play("TRANSITION_001");
-                // Transition phase timeout handling
+                // this.audioManager.play("TRANSITION_001");
+
                 if (currentTime - this.startTime > 10000) { // 10 second timeout
                     this.currentSegmentIdx = 0; // Back to relaxation
                     console.log('Transition timeout - returning to relaxation');
@@ -536,7 +540,7 @@ export class Controller {
                 }
             }
             else if (currentSegment.type === 'holding') {
-                 this.audioManager.play("HOLD_001");
+                // this.audioManager.play("HOLD_001");
                 // Start monitoring for abandonment
                 const newIdx = this.currentSegmentIdx + 1;
                 this.currentSegmentIdx = newIdx;
@@ -548,7 +552,7 @@ export class Controller {
                 }
             }
             else if (currentSegment.type === 'ending') {
-                this.audioManager.play("END_001");
+                // this.audioManager.play("END_001");
                 // Rep completion logic
                 this.handleRepCompletion(currentTime);
                 this.currentSegmentIdx = this.relaxationSegmentIdx;
