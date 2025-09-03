@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Video Admin Panel</title>
+  <link rel="stylesheet" href="video.css">
+</head>
+<body>
+  <div class="container">
+    <nav>
+        <div class="logo">Yoga Tracker</div>
+        <div class="nav-links">
+            <a href="index.html">Home</a>
+            <a href="visualizer.html">Segmentor Frontend</a>
+            <a href="video.html">Videos</a>
+        </div>
+    </nav>
+    <h1>Video Collection</h1>
+    <button id="addBtn">+ Add New Video</button>
+
+
+    <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>Thumbnail</th>
+          <th>Title</th>
+          <th>Description</th>
+          <th>URL</th>
+          <th>Duration</th>
+          <th>Reps</th>
+          <th>Workouts</th>
+          <!-- <th>Testing</th> -->
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div id="videoModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal()">&times;</span>
+      <h2 id="modalTitle">Add Video</h2>
+      <form id="videoForm">
+        <input type="hidden" id="rowIndex">
+        
+        <label>Title <input type="text" id="title" required></label>
+        <label>Description <textarea id="description" required></textarea></label>
+        <label>URL <input type="url" id="url" required></label>
+        <label>Duration <input type="number" id="duration"></label>
+        <label>Reps <input type="number" id="reps"></label>
+        <label>Image URL <input type="url" id="imgUrl"></label>
+        <label>JSON URL <input type="url" id="jsonUrl"></label>
+
+        <label>Workouts
+          <select id="workoutsSelect" multiple></select>
+        </label>
+
+        <!-- <label>Testing
+          <select id="testingSelect"></select>
+        </label> -->
+
+        <label>Extra Data (JSON)
+          <textarea id="extraData" rows="4" placeholder='{"level":"Beginner"}'></textarea>
+        </label>
+
+        <button type="submit" class="save-btn">Save</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- View Modal -->
+  <div id="viewModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeViewModal()">&times;</span>
+      <h2>Video Details</h2>
+      <div id="viewContent"></div>
+    </div>
+  </div>
+
+  <script src="video.js"></script>
+</body>
+</html>

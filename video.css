@@ -1,0 +1,272 @@
+/* ---------- General ---------- */
+body {
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  padding: 20px;
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.container {
+  max-width: 1200px;
+  margin: auto;
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0px 4px 12px rgba(0,0,0,0.1);
+}
+
+h1 {
+  margin-bottom: 20px;
+  color: #1f2937;
+}
+
+/* ---------- Buttons ---------- */
+button {
+  padding: 6px 12px;
+  margin: 3px;
+  cursor: pointer;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.add-btn { background: #10b981; color: white; font-weight: bold; }
+.add-btn:hover { background: #059669; }
+.view-btn { background: #22c55e; color: white; }
+.view-btn:hover { background: #15803d; }
+.edit-btn { background: #3b82f6; color: white; }
+.edit-btn:hover { background: #1e40af; }
+.delete-btn { background: #ef4444; color: white; }
+.delete-btn:hover { background: #b91c1c; }
+
+/* ---------- Table ---------- */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+  background: #f9fafb;
+  border-radius: 10px;
+  overflow: hidden;
+}
+th, td {
+  border: 1px solid #e5e7eb;
+  padding: 10px;
+  text-align: left;
+  font-size: 14px;
+}
+th { background: #f3f4f6; color: #374151; }
+tr:nth-child(even) { background: #f9fafb; }
+tr.highlight { background-color: rgba(239, 68, 68, 0.15); }
+
+td img { width: 60px; height: 40px; object-fit: cover; border-radius: 4px; }
+
+td.truncate {
+  max-width: 150px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+td.actions { white-space: normal; overflow: visible; }
+
+/* ---------- Modal ---------- */
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 999;
+  left: 0; top: 0;
+  width: 100%; height: 100%;
+  background-color: rgba(0,0,0,0.6);
+  overflow-y: auto;
+}
+.modal-content {
+  background: white;
+  padding: 25px;
+  border-radius: 10px;
+  width: 500px;
+  margin: 5% auto;
+  color: #111827;
+  position: relative;
+  animation: fadeIn 0.3s ease-in-out;
+}
+.close {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  font-size: 20px;
+  cursor: pointer;
+  color: #6b7280;
+}
+.close:hover { color: #111827; }
+
+/* ---------- Form ---------- */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.form-grid label { display: flex; flex-direction: column; font-size: 13px; color: #374151; }
+input {
+  padding: 6px;
+  margin-top: 4px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+}
+.form-actions { grid-column: span 2; text-align: center; margin-top: 10px; }
+.save-btn { background: #2563eb; color: white; padding: 8px 16px; }
+.save-btn:hover { background: #1d4ed8; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+
+/* Table Wrapper */
+.table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Make table adapt */
+table {
+  width: 100%;
+  min-width: 800px; /* keeps structure on small screens */
+  border-collapse: collapse;
+}
+th, td {
+  padding: 10px;
+  font-size: 14px;
+  text-align: left;
+  white-space: nowrap; /* keeps columns readable */
+}
+
+/* ---------- Modal Overlay ---------- */
+.modal {
+  display: none; /* hidden by default */
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 1000;
+  overflow-y: auto;
+}
+
+/* ---------- Modal Content ---------- */
+.modal-content {
+  background: #ffffff;
+  margin: 50px auto;
+  padding: 25px 30px;
+  border-radius: 12px;
+  max-width: 600px;
+  width: 90%;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+/* ---------- Close Button ---------- */
+.close {
+  float: right;
+  font-size: 24px;
+  font-weight: bold;
+  color: #555;
+  cursor: pointer;
+  transition: color 0.2s ease-in-out;
+}
+.close:hover {
+  color: #e63946;
+}
+
+/* ---------- Form Elements ---------- */
+form label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: #333;
+}
+
+form input,
+form select,
+form textarea {
+  width: 100%;
+  padding: 10px 12px;
+  margin-bottom: 18px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  background: #fafafa;
+  transition: all 0.2s ease;
+}
+
+form input:focus,
+form select:focus,
+form textarea:focus {
+  border-color: #2563eb;
+  background: #fff;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+}
+
+/* ---------- Submit Button ---------- */
+form button {
+  display: inline-block;
+  padding: 10px 20px;
+  background: #2563eb;
+  color: #fff;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.25s ease-in-out;
+}
+form button:hover {
+  background: #1e40af;
+}
+
+/* ---------- Animations ---------- */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+
+nav {
+    background-color: #f37003;
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 2rem;
+}
+
+nav .logo {
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+nav .nav-links {
+    display: flex;
+    gap: 1.5rem;
+}
+
+nav .nav-links a {
+    color: white;
+    text-decoration: none;
+    font-size: 1rem;
+    transition: color 0.3s ease;
+}
+
+nav .nav-links a:hover {
+    color: #61dafb;
+}
+@media (max-width: 768px) {
+    nav {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .nav-links {
+        width: 100%;
+        justify-content: center;
+    }
+}
