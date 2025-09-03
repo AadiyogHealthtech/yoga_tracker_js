@@ -247,7 +247,7 @@ function saveSegment() {
     phaseFrames.length;
   const avgFrameNumber = Math.round(avgTime * 30); // Assuming 30 fps
 
-  // Get angle tolerances from UI
+  // Get angle tolerances from UI and update the frame's angleToleranceArray
   const angleTolerances = {};
   Object.keys(ANGLE_JOINTS).forEach((joint) => {
     const toleranceInput = document.getElementById(`${joint}-tolerance`);
@@ -257,6 +257,24 @@ function saveSegment() {
       angleTolerances[joint] = DEFAULT_ANGLE_TOLERANCE;
     }
   });
+
+  // Update the selected frame's angleToleranceArray with current tolerance values
+  if (selectedFrame.angleToleranceArray) {
+    for (let i = 0; i < 33; i++) {
+      const jointEntry = Object.entries(ANGLE_JOINTS).find(
+        ([jointName, jointDef]) => jointDef.b === i
+      );
+
+      if (jointEntry) {
+        const [jointName] = jointEntry;
+        const currentAngle = selectedFrame.angles[jointName]
+          ? selectedFrame.angles[jointName].toFixed(1)
+          : "0";
+        const tolerance = angleTolerances[jointName] || DEFAULT_ANGLE_TOLERANCE;
+        selectedFrame.angleToleranceArray[i] = `${currentAngle},${tolerance}`;
+      }
+    }
+  }
 
   const segment = {
     id: Date.now(),
@@ -277,6 +295,7 @@ function saveSegment() {
       frameData: {
         landmarks: selectedFrame.landmarks,
         angles: selectedFrame.angles,
+        angleToleranceArray: selectedFrame.angleToleranceArray,
       },
     });
   }
@@ -566,6 +585,23 @@ function analyzeSegment(segment) {
     toleranceSlider.addEventListener("input", () => {
       toleranceValue.textContent = `±${toleranceSlider.value}°`;
       segment.angleTolerances[joint] = parseFloat(toleranceSlider.value);
+
+      // Update the frame's angleToleranceArray
+      const frame = extractedFrames[segment.frameIndex];
+      if (frame.angleToleranceArray) {
+        // Find the landmark index for this joint (the vertex of the angle)
+        const jointDef = ANGLE_JOINTS[joint];
+        if (jointDef) {
+          const landmarkIndex = jointDef.b; // 'b' is the vertex
+          const currentAngle = frame.angles[joint]
+            ? frame.angles[joint].toFixed(1)
+            : "0";
+          const newTolerance = toleranceSlider.value;
+          frame.angleToleranceArray[
+            landmarkIndex
+          ] = `${currentAngle},${newTolerance}`;
+        }
+      }
     });
 
     angleRow.appendChild(angleLabel);
@@ -1501,40 +1537,63 @@ function seekToTime(time) {
 
 // Capture frame with pose data and angles
 async function captureFrame(name, time) {
-    if (!currentPoseLandmarks) return null;
+  if (!currentPoseLandmarks) return null;
 
-    // Create canvas for frame capture
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    canvas.width = videoPlayer.videoWidth;
-    canvas.height = videoPlayer.videoHeight;
+  // Create canvas for frame capture
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  canvas.width = videoPlayer.videoWidth;
+  canvas.height = videoPlayer.videoHeight;
 
-    // Draw video frame
-    ctx.drawImage(videoPlayer, 0, 0, canvas.width, canvas.height);
+  // Draw video frame
+  ctx.drawImage(videoPlayer, 0, 0, canvas.width, canvas.height);
 
-    // Get image data
-    const imageData = canvas.toDataURL('image/jpeg', 0.9);
+  // Get image data
+  const imageData = canvas.toDataURL("image/jpeg", 0.9);
 
-    // Process landmarks
-    const landmarks = currentPoseLandmarks.map((lm) => ({
-        x: lm.x,
-        y: lm.y,
-        z: lm.z,
-        visibility: lm.visibility
-    }));
+  // Process landmarks
+  const landmarks = currentPoseLandmarks.map((lm) => ({
+    x: lm.x,
+    y: lm.y,
+    z: lm.z,
+    visibility: lm.visibility,
+  }));
 
-    // Calculate angles for this frame
-    const angles = calculateAllAngles(landmarks);
+  // Calculate angles for this frame
+  const angles = calculateAllAngles(landmarks);
 
-    return {
-        name: name,
-        time: time,
-        imageData: imageData,
-        landmarks: landmarks,
-        angles: angles,
-        width: canvas.width,
-        height: canvas.height
-    };
+  // Create combined angle,tolerance array (33 elements)
+  const angleToleranceArray = [];
+  for (let i = 0; i < 33; i++) {
+    let angle = "0";
+    let tolerance = "0";
+
+    // Check if this landmark index corresponds to one of the 8 joints we calculate angles for
+    const jointEntry = Object.entries(ANGLE_JOINTS).find(
+      ([jointName, jointDef]) => jointDef.b === i // 'b' is the vertex of the angle (the joint itself)
+    );
+
+    if (jointEntry) {
+      const [jointName] = jointEntry;
+      // Use the calculated angle for this joint
+      angle = angles[jointName] ? angles[jointName].toFixed(1) : "0";
+      tolerance = DEFAULT_ANGLE_TOLERANCE.toString(); // Default tolerance
+    }
+
+    // Combine as "angle,tolerance"
+    angleToleranceArray.push(`${angle},${tolerance}`);
+  }
+
+  return {
+    name: name,
+    time: time,
+    imageData: imageData,
+    landmarks: landmarks,
+    angles: angles, // Keep original angles object for compatibility
+    angleToleranceArray: angleToleranceArray, // New combined array
+    width: canvas.width,
+    height: canvas.height,
+  };
 }
 
 // Display extracted frames
@@ -1962,7 +2021,7 @@ function exportAsJson() {
     ];
   });
 
-  // 5) Build "frames" with normalized landmarks and angles
+  // 5) Build "frames" with normalized landmarks and combined angle,tolerance array
   const exportFrames = extractedFrames.map((frame) => {
     const result = normalizeKeypoints(frame.landmarks);
 
@@ -1991,45 +2050,49 @@ function exportAsJson() {
       });
     }
 
-    // Create flat arrays for angles and tolerances (33*2 = 66 elements each)
-    const anglesArray = [];
-    const tolerancesArray = [];
+    // Use the frame's angleToleranceArray if it exists, otherwise create it
+    let angleToleranceArray;
+    if (frame.angleToleranceArray) {
+      angleToleranceArray = frame.angleToleranceArray;
+    } else {
+      // Fallback: create the array if it doesn't exist
+      angleToleranceArray = [];
+      for (let i = 0; i < 33; i++) {
+        let angle = "0";
+        let tolerance = "0";
 
-    // For all 33 landmarks
-    for (let i = 0; i < 33; i++) {
-      let angle = "0";
-      let tolerance = "0";
+        const jointEntry = Object.entries(ANGLE_JOINTS).find(
+          ([jointName, jointDef]) => jointDef.b === i
+        );
 
-      // Check if this landmark index corresponds to one of the 8 joints we calculate angles for
-      const jointEntry = Object.entries(ANGLE_JOINTS).find(([jointName, jointDef]) => 
-        jointDef.b === i  // 'b' is the vertex of the angle (the joint itself)
-      );
+        if (jointEntry) {
+          const [jointName] = jointEntry;
+          angle = frame.angles[jointName]
+            ? frame.angles[jointName].toFixed(1)
+            : "0";
 
-      if (jointEntry) {
-        const [jointName] = jointEntry;
-        // Use the calculated angle for this joint
-        angle = frame.angles[jointName] ? frame.angles[jointName].toFixed(1) : "0";
-        
-        // Find tolerance from any segment that uses this frame
-        segments.forEach((seg) => {
-          const frameIndex = extractedFrames.findIndex(
-            (f) => f.name === frame.name && f.time === frame.time
-          );
-          if (frameIndex === seg.frameIndex && seg.angleTolerances && seg.angleTolerances[jointName]) {
-            tolerance = seg.angleTolerances[jointName].toString();
-          }
-        });
+          // Find tolerance from any segment that uses this frame
+          segments.forEach((seg) => {
+            const frameIndex = extractedFrames.findIndex(
+              (f) => f.name === frame.name && f.time === frame.time
+            );
+            if (
+              frameIndex === seg.frameIndex &&
+              seg.angleTolerances &&
+              seg.angleTolerances[jointName]
+            ) {
+              tolerance = seg.angleTolerances[jointName].toString();
+            }
+          });
+        }
+
+        angleToleranceArray.push(`${angle},${tolerance}`);
       }
-
-      // Add both angle and tolerance for this landmark
-      anglesArray.push(angle);
-      tolerancesArray.push(tolerance);
     }
 
-    // Return the frame data: [landmarks, angles, tolerances]
-    return [landmarksArray, anglesArray, tolerancesArray];
+    // Return the frame data: [landmarks, angleToleranceArray]
+    return [landmarksArray, angleToleranceArray];
   });
-
   // Final JSON structure:
   const dataToSave = {
     video_name: videoName,
