@@ -1763,6 +1763,8 @@ function updateDataPreview(activeThresholds) {
  * Paste this function into visualizer.js (in place of your old exportAsJson),
  * and then hook up its “Download JSON” button exactly as before.
  */
+
+
 function calculateNormal(p1, p2, p3) {
 	const v1 = [p2[0] - p1[0], p2[1] - p1[1], p2[2] - p1[2]];
 	const v2 = [p3[0] - p1[0], p3[1] - p1[1], p3[2] - p1[2]];
@@ -1919,7 +1921,6 @@ function cleanName(inputStr) {
 	return cleaned;
 }
 
-
 function exportAsJson() {
   if (segments.length === 0 || !videoPlayer) {
     alert("No segments to export or video not loaded.");
@@ -1948,7 +1949,6 @@ function exportAsJson() {
   });
 
   // 4) Build the export segments with normalized thresholds
-  let lastframe = 0;
   const exportSegments = segments.map((seg) => {
     const pr = phaseRanges.find((p) => p.name === seg.phase);
     let startFrame, endFrame;
@@ -1997,7 +1997,7 @@ function exportAsJson() {
     }
     const phase_name = cleanName(seg.phase);
 
-    // Calculate representativeFrame correctly within phase bounds
+    // ✅ Calculate representativeFrame safely
     const phaseFrames = extractedFrames.filter((f) =>
       f.name.startsWith(seg.phase)
     );
@@ -2005,9 +2005,15 @@ function exportAsJson() {
       (f) => f.time === extractedFrames[seg.frameIndex].time
     );
 
-    let representativeFrame = startFrame + phaseLocalIndex;
-    representativeFrame = Math.min(representativeFrame, endFrame); // Ensure it doesn't exceed endFrame
+    let representativeFrame;
+    if (phaseLocalIndex >= 0) {
+      representativeFrame = startFrame + phaseLocalIndex;
+      representativeFrame = Math.min(representativeFrame, endFrame);
+    } else {
+      representativeFrame = seg.frameIndex; // fallback
+    }
 
+    // Add feedback
     return [
       startFrame,
       endFrame,
@@ -2017,6 +2023,7 @@ function exportAsJson() {
       {
         representativeFrame,
         angleTolerances: seg.angleTolerances || {},
+        feedback: seg.feedback || "", // ✅ added safely
       },
     ];
   });
@@ -2055,14 +2062,13 @@ function exportAsJson() {
     if (frame.angleToleranceArray) {
       angleToleranceArray = frame.angleToleranceArray;
     } else {
-      // Fallback: create the array if it doesn't exist
       angleToleranceArray = [];
       for (let i = 0; i < 33; i++) {
         let angle = "0";
         let tolerance = "0";
 
         const jointEntry = Object.entries(ANGLE_JOINTS).find(
-          ([jointName, jointDef]) => jointDef.b === i
+          ([, jointDef]) => jointDef.b === i
         );
 
         if (jointEntry) {
@@ -2090,10 +2096,10 @@ function exportAsJson() {
       }
     }
 
-    // Return the frame data: [landmarks, angleToleranceArray]
     return [landmarksArray, angleToleranceArray];
   });
-  // Final JSON structure:
+
+  // Final JSON structure
   const dataToSave = {
     video_name: videoName,
     frame_rate: frameRate,
@@ -2118,7 +2124,7 @@ function exportAsJson() {
   const statusMessage = document.getElementById("statusMessage");
   if (statusMessage) {
     statusMessage.textContent =
-      "JSON exported with normalized landmarks and angles!";
+      "JSON exported with normalized landmarks, angles, and feedback!";
     statusMessage.className = "status-message status-success";
     setTimeout(() => {
       statusMessage.textContent = "";
