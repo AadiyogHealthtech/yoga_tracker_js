@@ -22,6 +22,9 @@ import { calculateAngle } from "../utils/utils.js";
  */
 
 import { validatePose } from "./errorDetection.js";
+import { initErrorDetection } from "./errorDetection.js";
+await initErrorDetection(); // preload JSON once
+
 export class BasePhase {
   constructor(controller) {
     this.controller = controller;
@@ -232,12 +235,27 @@ export class TransitionPhase extends BasePhase {
     );
 
     // ✅ Run errorDetection.js validation here
-    if (this.controller.normalizedKeypoints) {
+    // if (this.controller.normalizedKeypoints) {
+    //   const poseValidation = validatePose(
+    //     this.controller.normalizedKeypoints,
+    //     "tadasana", // pose to check in transition
+    //     this.controller.audioManager // pass AudioManager for chimes
+    //   );
+
+    //   if (poseValidation.status === "fail") {
+    //     console.log("Pose validation failed:", poseValidation);
+    //     printTextOnFrame(ctx, "Adjust pose...");
+    //   }
+    // }
+
+    // ✅ Run errorDetection.js validation here
+    if (this.controller.landmarks) { // Check for raw landmarks instead
       const poseValidation = validatePose(
-        this.controller.normalizedKeypoints,
-        "tadasana", // pose to check in transition
-        this.controller.audioManager // pass AudioManager for chimes
+        this.controller.landmarks, // Pass the raw landmarks
+        "tadasana",
+        this.controller.audioManager
       );
+
       if (poseValidation.status === "fail") {
         console.log("Pose validation failed:", poseValidation);
         printTextOnFrame(ctx, "Adjust pose...");

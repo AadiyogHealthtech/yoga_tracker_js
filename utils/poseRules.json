@@ -3,33 +3,80 @@
     "requiresFrontFacing": true,
     "angles": [
       {
-        "name": "Left Leg Straight",
-        "keypoints": [23, 25, 27],
-        "min": 170,
-        "max": 200,
-        "errorId": "left_leg_error"
-      },
-      {
-        "name": "Right Leg Straight",
-        "keypoints": [24, 26, 28],
-        "min": 170,
-        "max": 200,
-        "errorId": "right_leg_error"
-      },
-      {
-        "name": "Right Arm Straight",
+        "name": "Right Shoulder Angle",
         "keypoints": [12, 14, 16],
-        "min": 170,
-        "max": 200,
-        "errorId": "right_arm_error"
+        "target": "180 ± 20",
+        "errorId": "10000000"
       },
       {
-        "name": "Left Arm Straight",
+        "name": "Left Shoulder Angle",
         "keypoints": [11, 13, 15],
-        "min": 170,
-        "max": 200,
-        "errorId": "left_arm_error"
+        "target": "180 ± 20",
+        "errorId": "01000000"
+      },
+      {
+        "name": "Right Elbow Angle",
+        "keypoints": [14, 12, 16],
+        "target": "180 ± 20",
+        "errorId": "00100000"
+      },
+      {
+        "name": "Left Elbow Angle",
+        "keypoints": [13, 11, 15],
+        "target": "180 ± 20",
+        "errorId": "00010000"
+      },
+      {
+        "name": "Right Knee Angle",
+        "keypoints": [24, 26, 28],
+        "target": "180 ± 20",
+        "errorId": "00001000"
+      },
+      {
+        "name": "Left Knee Angle",
+        "keypoints": [23, 25, 27],
+        "target": "180 ± 20",
+        "errorId": "00000100"
+      },
+      {
+        "name": "Right Ankle Angle",
+        "keypoints": [26, 28, 32],
+        "target": "90 ± 15",
+        "errorId": "00000010"
+      },
+      {
+        "name": "Left Ankle Angle",
+        "keypoints": [25, 27, 31],
+        "target": "90 ± 15",
+        "errorId": "00000001"
+      },
+      {
+        "name": "Left Shoulder and Left Elbow",
+        "keypoints": [11, 13, 15, 11, 12, 13], 
+        "target": "180 ± 20",
+        "errorId": "01010000"
+      },
+      {
+        "name": "Right Shoulder and Right Elbow",
+        "keypoints": [12, 14, 16, 12, 14, 16],
+        "target": "180 ± 20",
+        "errorId": "10100000"
+      },
+      {
+        "name": "Left Knee and Left Ankle",
+        "keypoints": [23, 25, 27, 25, 27, 31],
+        "target": "150 ± 20",
+        "errorId": "00000101"
+      },
+      {
+        "name": "Right Knee and Right Ankle",
+        "keypoints": [24, 26, 28, 26, 28, 32],
+        "target": "150 ± 20",
+        "errorId": "00001010"
       }
-    ]
+    ],
+    "errorCodeDescription": {
+      "note": "Each errorId is an 8-bit string. Single-bit = single joint misalignment, Two-bits = paired misalignment. At most two bits can be set to 1."
+    }
   }
 }
